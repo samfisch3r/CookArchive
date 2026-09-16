@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+build/
+
+# Local configuration file (sdk path, etc)
+local.properties
+
+# Log Files
+*.log
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Kotlin
+.kotlin/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+
+# Private history/temp
+.artifacts/
+
+# Android Studio profiling and capture files
+/captures
+.externalNativeBuild
+.cxx
+
+# Exclude web frontend configuration
+web

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Include the Room database and its journal/shm files -->
+    <include domain="database" path="recipe_database"/>
+    <include domain="database" path="recipe_database-shm"/>
+    <include domain="database" path="recipe_database-wal"/>
+
+    <!-- Include saved recipe images -->
+    <include domain="file" path="."/>
+</full-backup-content>

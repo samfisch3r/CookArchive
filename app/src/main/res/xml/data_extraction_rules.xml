@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="recipe_database"/>
+        <include domain="database" path="recipe_database-shm"/>
+        <include domain="database" path="recipe_database-wal"/>
+        <include domain="file" path="."/>
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="recipe_database"/>
+        <include domain="database" path="recipe_database-shm"/>
+        <include domain="database" path="recipe_database-wal"/>
+        <include domain="file" path="."/>
+    </device-transfer>
+</data-extraction-rules>
