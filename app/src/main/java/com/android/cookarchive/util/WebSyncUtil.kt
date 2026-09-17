@@ -3,6 +3,8 @@ package com.android.cookarchive.util
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
+import androidx.core.graphics.scale
+import com.android.cookarchive.BuildConfig
 import com.android.cookarchive.data.entities.MealPlanWithRecipe
 import com.android.cookarchive.ui.screens.DaySlot
 import kotlinx.coroutines.Dispatchers
@@ -11,7 +13,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.File
-import com.android.cookarchive.BuildConfig
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -42,10 +43,10 @@ object WebSyncUtil {
                 mealsForDay.forEach { item ->
                     val mealJson = JSONObject()
                     mealJson.put("id", item.mealPlan.id)
-                    mealJson.put("title", item.recipeWithDetails.recipe.title)
-                    mealJson.put("category", item.recipeWithDetails.recipe.category)
+                    mealJson.put("title", item.displayTitle)
+                    mealJson.put("category", item.displayCategory)
 
-                    val rawImage = item.recipeWithDetails.recipe.imagePath
+                    val rawImage = item.recipeWithDetails?.recipe?.imagePath
                     val imagePayload = encodeImageForSync(rawImage)
                     mealJson.put("image", imagePayload ?: "")
 
@@ -95,7 +96,6 @@ object WebSyncUtil {
 
             val originalBitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return null
 
-            // Scale down bitmap to max width/height 600px to keep payload lightweight
             val maxDimension = 600
             val width = originalBitmap.width
             val height = originalBitmap.height
@@ -104,7 +104,7 @@ object WebSyncUtil {
                 val ratio = minOf(maxDimension.toFloat() / width, maxDimension.toFloat() / height)
                 val targetW = (width * ratio).toInt()
                 val targetH = (height * ratio).toInt()
-                Bitmap.createScaledBitmap(originalBitmap, targetW, targetH, true)
+                originalBitmap.scale(targetW, targetH)
             } else {
                 originalBitmap
             }

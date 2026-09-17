@@ -1,14 +1,17 @@
 package com.android.cookarchive.ui.screens
 
 import android.content.Intent
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -62,12 +65,17 @@ fun getNext5Days(): List<DaySlot> {
 fun MealPlanScreen(
     mealPlans: List<MealPlanWithRecipe>,
     onCookRecipe: (Long) -> Unit,
+    onAddCustomMealPlan: (String, String) -> Unit,
     onMoveMealPlan: (Long, String) -> Unit,
     onDeleteMealPlan: (MealPlan) -> Unit
 ) {
     val daySlots = remember { getNext5Days() }
     val mealPlansByDate = mealPlans.groupBy { it.mealPlan.date }
     val context = LocalContext.current
+
+    var showCustomDialog by remember { mutableStateOf(false) }
+    var targetSlotForCustomNote by remember { mutableStateOf<DaySlot?>(null) }
+    var customNoteText by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -106,7 +114,7 @@ fun MealPlanScreen(
                     colors = CardDefaults.cardColors(
                         containerColor = if (mealsForDay.isNotEmpty()) 
                             MaterialTheme.colorScheme.surfaceContainerHigh 
-                        else 0.0.let { MaterialTheme.colorScheme.surfaceVariant }
+                        else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
                     Column(
@@ -120,17 +128,35 @@ fun MealPlanScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = slot.displayTitle,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = slot.formattedDateStr,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column {
+                                Text(
+                                    text = slot.displayTitle,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = slot.formattedDateStr,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            TextButton(
+                                onClick = {
+                                    targetSlotForCustomNote = slot
+                                    customNoteText = ""
+                                    showCustomDialog = true
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Default.EditNote,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Add Custom")
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
@@ -147,7 +173,11 @@ fun MealPlanScreen(
                                 MealPlanItemRow(
                                     mealPlanWithRecipe = item,
                                     availableDays = daySlots,
-                                    onCook = { onCookRecipe(item.recipeWithDetails.recipe.id) },
+                                    onCook = {
+                                        item.recipeWithDetails?.recipe?.id?.let { recipeId ->
+                                            onCookRecipe(recipeId)
+                                        }
+                                    },
                                     onMoveToDate = { newDate -> onMoveMealPlan(item.mealPlan.id, newDate) },
                                     onDelete = { onDeleteMealPlan(item.mealPlan) }
                                 )
@@ -157,6 +187,49 @@ fun MealPlanScreen(
                     }
                 }
             }
+        }
+
+        if (showCustomDialog && targetSlotForCustomNote != null) {
+            AlertDialog(
+                onDismissRequest = { showCustomDialog = false },
+                title = { Text("Add Custom Meal / Note") },
+                text = {
+                    Column {
+                        Text(
+                            text = "For ${targetSlotForCustomNote?.displayTitle} (${targetSlotForCustomNote?.formattedDateStr})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = customNoteText,
+                            onValueChange = { customNoteText = it },
+                            label = { Text("Note / Meal (e.g. Order Pizza)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (customNoteText.isNotBlank() && targetSlotForCustomNote != null) {
+                                onAddCustomMealPlan(customNoteText, targetSlotForCustomNote!!.isoDate)
+                                showCustomDialog = false
+                                customNoteText = ""
+                                targetSlotForCustomNote = null
+                            }
+                        }
+                    ) {
+                        Text("Add to Plan")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showCustomDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
@@ -182,37 +255,55 @@ private fun MealPlanItemRow(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            AsyncImage(
-                model = mealPlanWithRecipe.recipeWithDetails.recipe.imagePath,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop
-            )
+            if (mealPlanWithRecipe.isRecipe && !mealPlanWithRecipe.recipeWithDetails?.recipe?.imagePath.isNullOrBlank()) {
+                AsyncImage(
+                    model = mealPlanWithRecipe.recipeWithDetails.recipe.imagePath,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(60.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.RestaurantMenu,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = mealPlanWithRecipe.recipeWithDetails.recipe.title,
+                    text = mealPlanWithRecipe.displayTitle,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1
                 )
                 Text(
-                    text = mealPlanWithRecipe.recipeWithDetails.recipe.category,
+                    text = mealPlanWithRecipe.displayCategory,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
             }
 
-            IconButton(onClick = onCook) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = "Cook Now",
-                    tint = MaterialTheme.colorScheme.primary
-                )
+            if (mealPlanWithRecipe.isRecipe) {
+                IconButton(onClick = onCook) {
+                    Icon(
+                        Icons.Default.PlayArrow,
+                        contentDescription = "Cook Now",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
 
             Box {

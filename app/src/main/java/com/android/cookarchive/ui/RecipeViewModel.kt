@@ -67,7 +67,9 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                             try {
                                 val pastDate = LocalDate.parse(pastPlan.mealPlan.date, DateTimeFormatter.ISO_LOCAL_DATE)
                                 val lastCookedMs = pastDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                                dao.updateRecipeCookStats(pastPlan.mealPlan.recipeId, lastCookedMs)
+                                pastPlan.mealPlan.recipeId?.let { recipeId ->
+                                    dao.updateRecipeCookStats(recipeId, lastCookedMs)
+                                }
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
@@ -94,15 +96,38 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val scraped = withContext(Dispatchers.IO) {
-                    RecipeScraper.scrapeFromUrl(url)
+                val normalizedUrl = RecipeScraper.normalizeUrl(url)
+
+                // Try JSON-LD Scraping first
+                var scraped = withContext(Dispatchers.IO) {
+                    RecipeScraper.scrapeFromUrl(normalizedUrl)
                 }
-                if (scraped != null) {
+
+                // If structured scraping fails or returns incomplete recipe data, try AI fallback with raw webpage text
+                if (scraped == null || (scraped.ingredients.isEmpty() && scraped.steps.isEmpty())) {
+                    val webpageData = withContext(Dispatchers.IO) {
+                        RecipeScraper.fetchWebpageData(normalizedUrl)
+                    }
+                    if (webpageData != null && webpageData.text.isNotBlank()) {
+                        val aiScraped = withContext(Dispatchers.IO) {
+                            RecipeAIParser.parseFromWebText(webpageData.text)
+                        }
+                        if (aiScraped != null) {
+                            scraped = aiScraped
+                            if (scraped.recipe.imagePath.isNullOrBlank() && !webpageData.mainImageUrl.isNullOrBlank()) {
+                                scraped = scraped.copy(recipe = scraped.recipe.copy(imagePath = webpageData.mainImageUrl))
+                            }
+                        }
+                    }
+                }
+
+                if (scraped != null && (scraped.ingredients.isNotEmpty() || scraped.steps.isNotEmpty())) {
                     var finalRecipe = scraped.recipe
                     
-                    if (!finalRecipe.imagePath.isNullOrBlank()) {
+                    val imageUrl = finalRecipe.imagePath
+                    if (!imageUrl.isNullOrBlank()) {
                         val localPath = withContext(Dispatchers.IO) {
-                            ImageStorage.saveImageFromUrl(getApplication(), finalRecipe.imagePath!!)
+                            ImageStorage.saveImageFromUrl(getApplication(), imageUrl)
                         }
                         if (localPath != null) {
                             finalRecipe = finalRecipe.copy(imagePath = localPath)
@@ -117,7 +142,13 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 } else {
-                    _errorEvents.emit("Could not parse recipe from URL. No supported data found.")
+                    val reason = RecipeAIParser.lastFailureReason
+                    val errorText = if (!reason.isNullOrBlank()) {
+                        "Could not parse recipe: $reason"
+                    } else {
+                        "Could not parse recipe from URL. No structured data found and AI fallback failed."
+                    }
+                    _errorEvents.emit(errorText)
                 }
             } catch (e: Exception) {
                 _errorEvents.emit("Failed to import recipe: ${e.message}")
@@ -154,7 +185,13 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                         }
                     }
                 } else {
-                    _errorEvents.emit("AI Scan failed. Please check your API key and image clarity.")
+                    val reason = RecipeAIParser.lastFailureReason
+                    val errorText = if (!reason.isNullOrBlank()) {
+                        "AI Scan failed: $reason"
+                    } else {
+                        "AI Scan failed. Please check your API key and image clarity."
+                    }
+                    _errorEvents.emit(errorText)
                 }
             } catch (e: Exception) {
                 _errorEvents.emit("AI Import error: ${e.message}")
@@ -193,6 +230,23 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 dao.deleteRecipe(recipe)
             }
             _currentRecipe.value = null
+            syncMealPlanToWeb()
+        }
+    }
+
+    fun addCustomMealPlan(customTitle: String, date: String) {
+        if (customTitle.isBlank()) return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                dao.insertMealPlan(
+                    MealPlan(
+                        recipeId = null,
+                        customTitle = customTitle.trim(),
+                        date = date,
+                        mealType = "Custom"
+                    )
+                )
+            }
             syncMealPlanToWeb()
         }
     }

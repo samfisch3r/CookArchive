@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.Ingredient
@@ -47,6 +50,8 @@ fun EditRecipeScreen(
     var title by remember { mutableStateOf(recipeWithDetails.recipe.title) }
     var description by remember { mutableStateOf(recipeWithDetails.recipe.description) }
     var category by remember { mutableStateOf(recipeWithDetails.recipe.category) }
+    var defaultServingsText by remember { mutableStateOf(recipeWithDetails.recipe.defaultServings.coerceAtLeast(1).toString()) }
+    var imagePath by remember { mutableStateOf(recipeWithDetails.recipe.imagePath) }
     
     val ingredients = remember {
         mutableStateListOf(
@@ -73,6 +78,27 @@ fun EditRecipeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var activeStepIndex by remember { mutableIntStateOf(-1) }
+
+    val mainImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val source = ImageDecoder.createSource(context.contentResolver, uri)
+                    val bitmap = ImageDecoder.decodeBitmap(source)
+                    val localPath = ImageStorage.saveBitmap(context, bitmap)
+                    if (localPath != null) {
+                        withContext(Dispatchers.Main) {
+                            imagePath = localPath
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
 
     val stepImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -109,10 +135,14 @@ fun EditRecipeScreen(
                 },
                 actions = {
                     Button(onClick = {
+                        val parsedServings = defaultServingsText.toIntOrNull()?.coerceAtLeast(1)
+                            ?: recipeWithDetails.recipe.defaultServings.coerceAtLeast(1)
                         val updatedRecipe = recipeWithDetails.recipe.copy(
                             title = title,
                             description = description,
-                            category = category
+                            category = category,
+                            defaultServings = parsedServings,
+                            imagePath = imagePath
                         )
                         val finalIngredients = ingredients.map {
                             Ingredient(
@@ -142,6 +172,66 @@ fun EditRecipeScreen(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 48.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item(key = "header_main_image") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Main Recipe Image", style = MaterialTheme.typography.titleMedium)
+                    if (!imagePath.isNullOrBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                        ) {
+                            AsyncImage(
+                                model = imagePath,
+                                contentDescription = "Main Recipe Image",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = { mainImagePicker.launch("image/*") },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Change")
+                                }
+                                FilledIconButton(
+                                    onClick = { imagePath = null },
+                                    colors = IconButtonDefaults.filledIconButtonColors(
+                                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                ) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Remove Image")
+                                }
+                            }
+                        }
+                    } else {
+                        OutlinedButton(
+                            onClick = { mainImagePicker.launch("image/*") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                        ) {
+                            Icon(Icons.Default.AddAPhoto, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Add Main Recipe Photo")
+                        }
+                    }
+                }
+            }
+
             item(key = "header_title") {
                 OutlinedTextField(
                     value = title,
@@ -158,13 +248,26 @@ fun EditRecipeScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
-            item(key = "header_cat") {
-                OutlinedTextField(
-                    value = category,
-                    onValueChange = { category = it },
-                    label = { Text("Category") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+            item(key = "header_cat_servings") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = { category = it },
+                        label = { Text("Category") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = defaultServingsText,
+                        onValueChange = { defaultServingsText = it },
+                        label = { Text("Servings") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.width(110.dp)
+                    )
+                }
             }
             
             item(key = "header_ingredients_label") {

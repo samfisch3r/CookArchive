@@ -10,5 +10,17 @@ data class MealPlanWithRecipe(
         parentColumn = "recipeId",
         entityColumn = "id"
     )
-    val recipeWithDetails: RecipeWithDetails
-)
+    val recipeWithDetails: RecipeWithDetails? = null
+) {
+    val displayTitle: String
+        get() = mealPlan.customTitle?.ifBlank { null }
+            ?: recipeWithDetails?.recipe?.title
+            ?: "Custom Meal"
+
+    val displayCategory: String
+        get() = if (!mealPlan.customTitle.isNullOrBlank()) "Note"
+            else recipeWithDetails?.recipe?.category ?: "General"
+
+    val isRecipe: Boolean
+        get() = recipeWithDetails != null
+}

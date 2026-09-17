@@ -247,30 +247,36 @@ fun CookingModeScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         items(recipeWithDetails.ingredients) { ingredient ->
+                            val qtyStr = if (ingredient.quantity > 0) {
+                                if (ingredient.quantity % 1.0 == 0.0) {
+                                    "${ingredient.quantity.toInt()} ${ingredient.unit}".trim()
+                                } else {
+                                    String.format(Locale.US, "%.1f %s", ingredient.quantity, ingredient.unit).trim()
+                                }
+                            } else {
+                                ingredient.unit
+                            }
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                    .padding(horizontal = 24.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = ingredient.name,
+                                    modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyLarge
                                 )
-                                val qtyStr = if (ingredient.quantity > 0) {
-                                    if (ingredient.quantity % 1.0 == 0.0) {
-                                        "${ingredient.quantity.toInt()} ${ingredient.unit}".trim()
-                                    } else {
-                                        String.format(Locale.US, "%.1f %s", ingredient.quantity, ingredient.unit).trim()
-                                    }
-                                } else {
-                                    ingredient.unit
+                                if (qtyStr.isNotBlank()) {
+                                    Text(
+                                        text = qtyStr,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
-                                Text(
-                                    text = qtyStr,
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
                             }
                             HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp))
                         }

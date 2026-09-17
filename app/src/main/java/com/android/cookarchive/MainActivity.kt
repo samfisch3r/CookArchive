@@ -2,6 +2,7 @@ package com.android.cookarchive
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
@@ -54,6 +55,20 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
 
     var activeTab by remember { mutableStateOf(MainTab.MenuPlan) }
     var activeSubScreen by remember { mutableStateOf<SubScreen>(SubScreen.None) }
+
+    // Handle back gesture / back button press navigation
+    BackHandler(enabled = activeSubScreen != SubScreen.None) {
+        when (activeSubScreen) {
+            SubScreen.Cooking -> activeSubScreen = SubScreen.Detail
+            SubScreen.Edit -> activeSubScreen = SubScreen.Detail
+            SubScreen.Detail -> activeSubScreen = SubScreen.None
+            SubScreen.None -> { /* Handled by enabled check */ }
+        }
+    }
+
+    BackHandler(enabled = activeSubScreen == SubScreen.None && activeTab != MainTab.Recipes) {
+        activeTab = MainTab.Recipes
+    }
 
     Scaffold(
         bottomBar = {
@@ -134,6 +149,9 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                                 onCookRecipe = { recipeId ->
                                     viewModel.loadRecipe(recipeId)
                                     activeSubScreen = SubScreen.Cooking
+                                },
+                                onAddCustomMealPlan = { customTitle, date ->
+                                    viewModel.addCustomMealPlan(customTitle, date)
                                 },
                                 onMoveMealPlan = { mealPlanId, newDate ->
                                     viewModel.moveMealPlan(mealPlanId, newDate)

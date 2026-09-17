@@ -83,8 +83,6 @@ dependencies {
     
     // Scraping & Network
     implementation(libs.jsoup)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.okhttp)
     implementation(libs.google.generativeai)
 
     // Tooling / Testing

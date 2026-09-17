@@ -176,26 +176,36 @@ fun RecipeDetailScreen(
             
             items(recipeWithDetails.ingredients) { ingredient ->
                 val scaledQuantity = ingredient.quantity * scaleFactor
+                val formattedQty = if (scaledQuantity > 0) {
+                    if (scaledQuantity % 1.0 == 0.0) {
+                        "${scaledQuantity.toInt()} ${ingredient.unit}".trim()
+                    } else {
+                        String.format(Locale.US, "%.1f %s", scaledQuantity, ingredient.unit).trim()
+                    }
+                } else {
+                    ingredient.unit
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = ingredient.name)
-                    val formattedQty = if (scaledQuantity > 0) {
-                        if (scaledQuantity % 1.0 == 0.0) {
-                            "${scaledQuantity.toInt()} ${ingredient.unit}".trim()
-                        } else {
-                            String.format(Locale.US, "%.1f %s", scaledQuantity, ingredient.unit).trim()
-                        }
-                    } else {
-                        ingredient.unit
-                    }
                     Text(
-                        text = formattedQty,
-                        fontWeight = FontWeight.Bold
+                        text = ingredient.name,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodyLarge
                     )
+                    if (formattedQty.isNotBlank()) {
+                        Text(
+                            text = formattedQty,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
             

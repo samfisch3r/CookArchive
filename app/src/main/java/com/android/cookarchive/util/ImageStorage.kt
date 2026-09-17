@@ -3,6 +3,7 @@ package com.android.cookarchive.util
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -13,30 +14,53 @@ import java.util.UUID
 
 object ImageStorage {
     
+    private const val TAG = "ImageStorage"
     private const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
     suspend fun saveImageFromUrl(context: Context, imageUrl: String): String? = withContext(Dispatchers.IO) {
         try {
-            val url = URL(imageUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.apply {
-                doInput = true
-                setRequestProperty("User-Agent", USER_AGENT)
-                connectTimeout = 10000
-                readTimeout = 10000
-                connect()
-            }
+            var currentUrl = imageUrl
+            var redirects = 0
             
-            val responseCode = connection.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                return@withContext null
-            }
+            while (redirects < 5) {
+                val url = URL(currentUrl)
+                val connection = (url.openConnection() as HttpURLConnection).apply {
+                    doInput = true
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", USER_AGENT)
+                    setRequestProperty("Accept", "image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
+                    connectTimeout = 12000
+                    readTimeout = 12000
+                }
+                
+                val code = connection.responseCode
+                if (code == HttpURLConnection.HTTP_MOVED_PERM || 
+                    code == HttpURLConnection.HTTP_MOVED_TEMP || 
+                    code == HttpURLConnection.HTTP_SEE_OTHER || 
+                    code == 307 || code == 308
+                ) {
+                    val location = connection.getHeaderField("Location")
+                    if (!location.isNullOrBlank()) {
+                        currentUrl = location
+                        redirects++
+                        continue
+                    }
+                }
+                
+                if (code != HttpURLConnection.HTTP_OK) {
+                    Log.w(TAG, "HTTP error $code fetching image from: $currentUrl")
+                    return@withContext null
+                }
 
-            val input = connection.inputStream
-            val bitmap = BitmapFactory.decodeStream(input) ?: return@withContext null
-            saveBitmap(context, bitmap)
+                val bitmap = connection.inputStream.use { input ->
+                    BitmapFactory.decodeStream(input)
+                } ?: return@withContext null
+
+                return@withContext saveBitmap(context, bitmap)
+            }
+            null
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error saving image from URL: $imageUrl", e)
             null
         }
     }
@@ -52,7 +76,7 @@ object ImageStorage {
             
             file.absolutePath
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error saving bitmap to file", e)
             null
         }
     }
@@ -65,7 +89,7 @@ object ImageStorage {
                 file.delete()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error deleting image file: $path", e)
         }
     }
 }
