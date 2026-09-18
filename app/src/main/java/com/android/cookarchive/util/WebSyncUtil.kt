@@ -96,7 +96,7 @@ object WebSyncUtil {
 
             val originalBitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return null
 
-            val maxDimension = 600
+            val maxDimension = 200
             val width = originalBitmap.width
             val height = originalBitmap.height
 
@@ -110,7 +110,7 @@ object WebSyncUtil {
             }
 
             val baos = ByteArrayOutputStream()
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos)
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 60, baos)
             val bytes = baos.toByteArray()
 
             "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
