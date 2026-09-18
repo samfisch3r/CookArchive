@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Load Gemini API Key securely from local.properties outside nested scopes
+// Load Gemini API Key and JSONBin Config securely from local.properties
 val localProperties = Properties().apply {
     val localPropertiesFile = rootProject.file("local.properties")
     if (localPropertiesFile.exists()) {
@@ -15,6 +15,7 @@ val localProperties = Properties().apply {
 }
 val geminiApiKey = localProperties.getProperty("GEMINI_API_KEY") ?: ""
 val jsonbinAccessKey = localProperties.getProperty("JSONBIN_ACCESS_KEY") ?: ""
+val jsonbinBinId = localProperties.getProperty("JSONBIN_BIN_ID") ?: ""
 
 android {
     namespace = "com.android.cookarchive"
@@ -32,6 +33,7 @@ android {
         // Pass the extracted keys safely to BuildConfig
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiApiKey\"")
         buildConfigField("String", "JSONBIN_ACCESS_KEY", "\"$jsonbinAccessKey\"")
+        buildConfigField("String", "JSONBIN_BIN_ID", "\"$jsonbinBinId\"")
     }
 
     buildTypes {

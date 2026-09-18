@@ -18,7 +18,7 @@ import java.net.URL
 
 object WebSyncUtil {
 
-    private const val JSONBIN_URL = "https://api.jsonbin.io/v3/b/6aaac0d5ac6210605ad53940"
+    private val JSONBIN_URL = "https://api.jsonbin.io/v3/b/${BuildConfig.JSONBIN_BIN_ID}"
     private val ACCESS_KEY = BuildConfig.JSONBIN_ACCESS_KEY
 
     suspend fun syncMealPlanToWeb(
