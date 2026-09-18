@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.android.cookarchive.data.entities.ShoppingListItem
+import java.text.Collator
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,8 +36,14 @@ fun ShoppingListScreen(
 
     var itemToEdit by remember { mutableStateOf<ShoppingListItem?>(null) }
 
-    val pendingItems = shoppingItems.filter { !it.isBought }
-    val boughtItems = shoppingItems.filter { it.isBought }
+    val collator = remember {
+        Collator.getInstance(Locale.getDefault()).apply {
+            strength = Collator.SECONDARY
+        }
+    }
+
+    val pendingItems = shoppingItems.filter { !it.isBought }.sortedWith { i1, i2 -> collator.compare(i1.name, i2.name) }
+    val boughtItems = shoppingItems.filter { it.isBought }.sortedWith { i1, i2 -> collator.compare(i1.name, i2.name) }
 
     Scaffold(
         topBar = {

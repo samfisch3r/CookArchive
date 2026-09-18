@@ -22,15 +22,22 @@ object RecipeAIParser {
     var lastFailureReason: String? = null
         private set
 
-    private val MODEL_CANDIDATES = listOf(
+    // Text-only models for webpage text extraction (includes high-quota Lite models)
+    private val TEXT_MODEL_CANDIDATES = listOf(
+        "gemini-3.5-flash-lite",
         "gemini-3.8-flash",
         "gemini-3.7-flash",
         "gemini-3.6-flash",
         "gemini-3.5-flash",
-        "gemini-2.5-flash",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-flash-lite",
-        "gemini-2.5-flash-lite"
+        "gemini-3.1-flash-lite"
+    )
+
+    // Multimodal models for photo/image scan (MUST support image inputs)
+    private val MULTIMODAL_MODEL_CANDIDATES = listOf(
+        "gemini-3.8-flash",
+        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.5-flash"
     )
 
     private fun getGenerativeModel(modelName: String): GenerativeModel {
@@ -110,7 +117,7 @@ object RecipeAIParser {
         lastFailureReason = null
 
         var lastException: Exception? = null
-        for (modelName in MODEL_CANDIDATES) {
+        for (modelName in MULTIMODAL_MODEL_CANDIDATES) {
             try {
                 val model = getGenerativeModel(modelName)
                 val response = retryWithBackoff {
@@ -176,7 +183,7 @@ object RecipeAIParser {
         lastFailureReason = null
 
         var lastException: Exception? = null
-        for (modelName in MODEL_CANDIDATES) {
+        for (modelName in TEXT_MODEL_CANDIDATES) {
             try {
                 val model = getGenerativeModel(modelName)
                 val response = retryWithBackoff {

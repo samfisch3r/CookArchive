@@ -28,10 +28,11 @@ import com.android.cookarchive.util.PdfUtil
 import kotlinx.coroutines.flow.SharedFlow
 import java.time.Instant
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import androidx.compose.material.icons.automirrored.filled.Sort
+import java.text.Collator
 import java.time.LocalDate
+import java.util.Locale
 
 enum class SortMode {
     A_Z,
@@ -56,12 +57,18 @@ fun RecipeListScreen(
 
     var sortMode by remember { mutableStateOf(SortMode.A_Z) }
 
+    val collator = remember {
+        Collator.getInstance(Locale.getDefault()).apply {
+            strength = Collator.SECONDARY
+        }
+    }
+
     val filteredRecipes = recipes.filter { 
         it.recipe.title.contains(searchQuery, ignoreCase = true) ||
         it.recipe.category.contains(searchQuery, ignoreCase = true)
     }.let { list ->
         when (sortMode) {
-            SortMode.A_Z -> list.sortedBy { it.recipe.title.lowercase() }
+            SortMode.A_Z -> list.sortedWith { r1, r2 -> collator.compare(r1.recipe.title, r2.recipe.title) }
             SortMode.LEAST_RECENTLY_COOKED -> list.sortedBy { it.recipe.lastCooked }
         }
     }

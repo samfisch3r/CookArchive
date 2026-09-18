@@ -288,24 +288,64 @@ private fun AddToMenuPlanDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Days Selection Row
-                Row(
+                // Days Selection (2 Rows)
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    daySlots.forEach { slot ->
-                        FilterChip(
-                            selected = selectedIsoDate == slot.isoDate,
-                            onClick = { selectedIsoDate = slot.isoDate },
-                            label = { 
-                                Text(
-                                    text = slot.displayTitle,
-                                    style = MaterialTheme.typography.labelSmall
-                                ) 
-                            }
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        daySlots.take(3).forEach { slot ->
+                            FilterChip(
+                                selected = selectedIsoDate == slot.isoDate,
+                                onClick = { selectedIsoDate = slot.isoDate },
+                                label = {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = slot.displayTitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = slot.formattedDateStr,
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        daySlots.drop(3).forEach { slot ->
+                            FilterChip(
+                                selected = selectedIsoDate == slot.isoDate,
+                                onClick = { selectedIsoDate = slot.isoDate },
+                                label = {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = slot.displayTitle,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = slot.formattedDateStr,
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
 
