@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.MoreVert
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.MealPlanWithRecipe
+import com.android.cookarchive.util.WebSyncUtil
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -64,10 +66,12 @@ fun getNext5Days(): List<DaySlot> {
 @Composable
 fun MealPlanScreen(
     mealPlans: List<MealPlanWithRecipe>,
+    recipeWishes: List<WebSyncUtil.MealWish> = emptyList(),
     onCookRecipe: (Long) -> Unit,
     onAddCustomMealPlan: (String, String) -> Unit,
     onMoveMealPlan: (Long, String) -> Unit,
-    onDeleteMealPlan: (MealPlan) -> Unit
+    onDeleteMealPlan: (MealPlan) -> Unit,
+    onDismissWish: (String) -> Unit = {}
 ) {
     val daySlots = remember { getNext5Days() }
     val mealPlansByDate = mealPlans.groupBy { it.mealPlan.date }
@@ -106,6 +110,73 @@ fun MealPlanScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (recipeWishes.isNotEmpty()) {
+                item(key = "card_wishes") {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "✨ Household Meal Requests (${recipeWishes.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            recipeWishes.forEach { wish ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surface,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = wish.title,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        Row {
+                                            IconButton(onClick = {
+                                                targetSlotForCustomNote = daySlots.first()
+                                                customNoteText = wish.title
+                                                showCustomDialog = true
+                                            }) {
+                                                Icon(
+                                                    Icons.Default.Add,
+                                                    contentDescription = "Schedule Wish",
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                            IconButton(onClick = { onDismissWish(wish.id) }) {
+                                                Icon(
+                                                    Icons.Default.Delete,
+                                                    contentDescription = "Dismiss Wish",
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             items(daySlots, key = { it.isoDate }) { slot ->
                 val mealsForDay = mealPlansByDate[slot.isoDate] ?: emptyList()
 

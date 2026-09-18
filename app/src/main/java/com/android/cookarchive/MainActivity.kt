@@ -52,6 +52,7 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
 
     val currentRecipe by viewModel.currentRecipe.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val recipeWishes by viewModel.recipeWishes.collectAsState()
 
     var activeTab by remember { mutableStateOf(MainTab.MenuPlan) }
     var activeSubScreen by remember { mutableStateOf<SubScreen>(SubScreen.None) }
@@ -144,8 +145,12 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                 is SubScreen.None -> {
                     when (activeTab) {
                         MainTab.MenuPlan -> {
+                            LaunchedEffect(Unit) {
+                                viewModel.fetchRecipeWishes()
+                            }
                             MealPlanScreen(
                                 mealPlans = mealPlans,
+                                recipeWishes = recipeWishes,
                                 onCookRecipe = { recipeId ->
                                     viewModel.loadRecipe(recipeId)
                                     activeSubScreen = SubScreen.Cooking
@@ -158,6 +163,9 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                                 },
                                 onDeleteMealPlan = { mealPlan ->
                                     viewModel.deleteMealPlan(mealPlan)
+                                },
+                                onDismissWish = { wishId ->
+                                    viewModel.dismissWish(wishId)
                                 }
                             )
                         }

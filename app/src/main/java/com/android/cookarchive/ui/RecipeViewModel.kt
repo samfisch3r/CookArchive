@@ -13,10 +13,10 @@ import com.android.cookarchive.data.entities.Recipe
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import com.android.cookarchive.data.entities.ShoppingListItem
 import com.android.cookarchive.ui.screens.getNext5Days
-import com.android.cookarchive.util.WebSyncUtil
 import com.android.cookarchive.util.ImageStorage
 import com.android.cookarchive.util.RecipeAIParser
 import com.android.cookarchive.util.RecipeScraper
+import com.android.cookarchive.util.WebSyncUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,6 +33,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 class RecipeViewModel(application: Application) : AndroidViewModel(application) {
+
     private val db = RecipeDatabase.getDatabase(application)
     private val dao = db.recipeDao()
 
@@ -46,6 +47,9 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _recipeWishes = MutableStateFlow<List<WebSyncUtil.MealWish>>(emptyList())
+    val recipeWishes: StateFlow<List<WebSyncUtil.MealWish>> = _recipeWishes.asStateFlow()
+
     private val _errorEvents = MutableSharedFlow<String>()
     val errorEvents: SharedFlow<String> = _errorEvents.asSharedFlow()
 
@@ -53,6 +57,30 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         processPastMealPlans()
+        fetchRecipeWishes()
+    }
+
+    fun fetchRecipeWishes() {
+        viewModelScope.launch {
+            val wishes = withContext(Dispatchers.IO) {
+                WebSyncUtil.fetchWishesFromWeb()
+            }
+            _recipeWishes.value = wishes
+        }
+    }
+
+    fun dismissWish(wishId: String) {
+        viewModelScope.launch {
+            val updatedWishes = _recipeWishes.value.filter { it.id != wishId }
+            _recipeWishes.value = updatedWishes
+            withContext(Dispatchers.IO) {
+                val days = getNext5Days()
+                val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
+                val mealPlansByDate = allPlans.groupBy { it.mealPlan.date }
+                val recipesList = dao.getAllRecipes().firstOrNull() ?: emptyList()
+                WebSyncUtil.syncMealPlanToWeb(days, mealPlansByDate, recipesList, updatedWishes)
+            }
+        }
     }
 
     private fun processPastMealPlans() {
@@ -77,7 +105,6 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                         dao.deletePastMealPlans(todayIso)
                     }
                 }
-                // Sync the cleanup to the website so old meals disappear
                 syncMealPlanToWeb()
             }
         }
@@ -98,12 +125,10 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             try {
                 val normalizedUrl = RecipeScraper.normalizeUrl(url)
 
-                // Try JSON-LD Scraping first
                 var scraped = withContext(Dispatchers.IO) {
                     RecipeScraper.scrapeFromUrl(normalizedUrl)
                 }
 
-                // If structured scraping fails or returns incomplete recipe data, try AI fallback with raw webpage text
                 if (scraped == null || (scraped.ingredients.isEmpty() && scraped.steps.isEmpty())) {
                     val webpageData = withContext(Dispatchers.IO) {
                         RecipeScraper.fetchWebpageData(normalizedUrl)
@@ -229,7 +254,6 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 
                 dao.deleteRecipe(recipe)
             }
-            _currentRecipe.value = null
             syncMealPlanToWeb()
         }
     }
@@ -285,14 +309,14 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                             val updatedItem = match.copy(quantity = match.quantity + scaledQty)
                             dao.updateShoppingItem(updatedItem)
                         } else {
-                            val newItem = ShoppingListItem(
-                                name = cleanName,
-                                quantity = scaledQty,
-                                unit = cleanUnit,
-                                isBought = false,
-                                originRecipe = recipe.title
+                            dao.insertShoppingItem(
+                                ShoppingListItem(
+                                    name = cleanName,
+                                    quantity = scaledQty,
+                                    unit = cleanUnit,
+                                    originRecipe = recipe.title
+                                )
                             )
-                            dao.insertShoppingItem(newItem)
                         }
                     }
                 }
@@ -319,20 +343,6 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun syncMealPlanToWeb() {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                val daySlots = getNext5Days()
-                val currentMealPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
-                val mealPlansByDate = currentMealPlans.groupBy { it.mealPlan.date }
-                WebSyncUtil.syncMealPlanToWeb(
-                    daySlots,
-                    mealPlansByDate
-                )
-            }
-        }
-    }
-
     fun toggleShoppingItemBought(item: ShoppingListItem) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -341,41 +351,26 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun updateShoppingItem(item: ShoppingListItem) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                dao.updateShoppingItem(item)
-            }
-        }
-    }
-
     fun addCustomShoppingItem(name: String, quantity: Double, unit: String) {
         if (name.isBlank()) return
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                val cleanName = name.trim()
-                val cleanUnit = unit.trim()
-                val existingItems = dao.getAllShoppingItemsListSync()
-
-                val match = existingItems.find { item ->
-                    !item.isBought &&
-                        item.name.equals(cleanName, ignoreCase = true) &&
-                        item.unit.equals(cleanUnit, ignoreCase = true)
-                }
-
-                if (match != null) {
-                    val updatedItem = match.copy(quantity = match.quantity + quantity)
-                    dao.updateShoppingItem(updatedItem)
-                } else {
-                    val newItem = ShoppingListItem(
-                        name = cleanName,
+                dao.insertShoppingItem(
+                    ShoppingListItem(
+                        name = name.trim(),
                         quantity = quantity,
-                        unit = cleanUnit,
-                        isBought = false,
+                        unit = unit.trim(),
                         originRecipe = null
                     )
-                    dao.insertShoppingItem(newItem)
-                }
+                )
+            }
+        }
+    }
+
+    fun updateShoppingItem(item: ShoppingListItem) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                dao.updateShoppingItem(item)
             }
         }
     }
@@ -393,6 +388,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             withContext(Dispatchers.IO) {
                 dao.clearBoughtShoppingItems()
             }
+        }
+    }
+
+    private suspend fun syncMealPlanToWeb() {
+        try {
+            val days = getNext5Days()
+            val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
+            val mealPlansByDate = allPlans.groupBy { it.mealPlan.date }
+            val recipesList = dao.getAllRecipes().firstOrNull() ?: emptyList()
+            WebSyncUtil.syncMealPlanToWeb(days, mealPlansByDate, recipesList, _recipeWishes.value)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 }
