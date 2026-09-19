@@ -1,9 +1,12 @@
 package com.android.cookarchive
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
@@ -14,6 +17,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.android.cookarchive.ui.RecipeViewModel
 import com.android.cookarchive.ui.screens.*
@@ -56,6 +60,30 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
 
     var activeTab by remember { mutableStateOf(MainTab.MenuPlan) }
     var activeSubScreen by remember { mutableStateOf<SubScreen>(SubScreen.None) }
+
+    val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        uri?.let {
+            viewModel.exportBackup(it) { success ->
+                val msg = if (success) "Backup exported successfully! 📦" else "Export failed."
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            viewModel.importBackup(it) { success ->
+                val msg = if (success) "Backup imported successfully! 🍳" else "Import failed. Check file format."
+                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     // Handle back gesture / back button press navigation
     BackHandler(enabled = activeSubScreen != SubScreen.None) {
@@ -183,6 +211,12 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                                 },
                                 onAddRecipesFromImages = { bitmaps ->
                                     viewModel.importRecipeFromImages(bitmaps)
+                                },
+                                onExportBackup = {
+                                    exportLauncher.launch("cookarchive_backup.zip")
+                                },
+                                onImportBackup = {
+                                    importLauncher.launch("*/*")
                                 }
                             )
                         }

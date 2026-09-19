@@ -2,6 +2,7 @@ package com.android.cookarchive.ui
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
@@ -13,6 +14,7 @@ import com.android.cookarchive.data.entities.Recipe
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import com.android.cookarchive.data.entities.ShoppingListItem
 import com.android.cookarchive.ui.screens.getNext5Days
+import com.android.cookarchive.util.BackupUtil
 import com.android.cookarchive.util.ImageStorage
 import com.android.cookarchive.util.RecipeAIParser
 import com.android.cookarchive.util.RecipeScraper
@@ -388,6 +390,25 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             withContext(Dispatchers.IO) {
                 dao.clearBoughtShoppingItems()
             }
+        }
+    }
+
+    fun exportBackup(destUri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = BackupUtil.exportBackup(getApplication(), destUri)
+            onResult(success)
+        }
+    }
+
+    fun importBackup(srcUri: Uri, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val success = BackupUtil.importBackup(getApplication(), srcUri)
+            _isLoading.value = false
+            if (success) {
+                syncMealPlanToWeb()
+            }
+            onResult(success)
         }
     }
 

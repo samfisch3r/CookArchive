@@ -11,8 +11,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,12 +30,11 @@ import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import com.android.cookarchive.util.PdfUtil
 import kotlinx.coroutines.flow.SharedFlow
+import java.text.Collator
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
-import androidx.compose.material.icons.automirrored.filled.Sort
-import java.text.Collator
-import java.time.LocalDate
 import java.util.Locale
 
 enum class SortMode {
@@ -47,9 +50,12 @@ fun RecipeListScreen(
     errorEvents: SharedFlow<String>,
     onRecipeClick: (Long) -> Unit,
     onAddRecipe: (String) -> Unit,
-    onAddRecipesFromImages: (List<Bitmap>) -> Unit
+    onAddRecipesFromImages: (List<Bitmap>) -> Unit,
+    onExportBackup: () -> Unit = {},
+    onImportBackup: () -> Unit = {}
 ) {
     var showDialog by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     var urlText by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -118,6 +124,34 @@ fun RecipeListScreen(
                             tint = if (sortMode == SortMode.LEAST_RECENTLY_COOKED) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
                     }
+
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More Options")
+                        }
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Export Backup (ZIP)") },
+                                leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onExportBackup()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Import Backup (ZIP)") },
+                                leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null) },
+                                onClick = {
+                                    showMenu = false
+                                    onImportBackup()
+                                }
+                            )
+                        }
+                    }
                 }
             )
         },
@@ -130,77 +164,63 @@ fun RecipeListScreen(
             }
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            // Search Box
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Search recipes...") },
+                placeholder = { Text("Search recipes or categories...") },
                 singleLine = true,
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            Icon(Icons.Default.Clear, contentDescription = "Clear Search")
                         }
                     }
                 }
             )
 
-            Box(modifier = Modifier.weight(1f)) {
-                if (filteredRecipes.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = if (isLoading) "Importing recipe..." 
-                                   else if (searchQuery.isNotEmpty()) "No recipes match your search."
-                                   else "No recipes found. Add one to get started!",
-                            modifier = Modifier.padding(32.dp)
+                            text = "Importing Recipe...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary
                         )
                     }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(filteredRecipes) { item ->
-                            val lastCookedText = if (item.recipe.lastCooked == 0L) {
-                                "Never cooked"
-                            } else {
-                                val date = Instant.ofEpochMilli(item.recipe.lastCooked).atZone(ZoneId.systemDefault()).toLocalDate()
-                                val daysAgo = ChronoUnit.DAYS.between(date, LocalDate.now())
-                                when {
-                                    daysAgo == 0L -> "Today"
-                                    daysAgo == 1L -> "Yesterday"
-                                    daysAgo < 7L -> "$daysAgo days ago"
-                                    daysAgo < 30L -> "${daysAgo / 7} weeks ago"
-                                    else -> "${daysAgo / 30} months ago"
-                                }
-                            }
-
-                            ListItem(
-                                headlineContent = { Text(item.recipe.title, fontWeight = FontWeight.Bold) },
-                                supportingContent = { Text("${item.recipe.category} • $lastCookedText") },
-                                leadingContent = {
-                                    AsyncImage(
-                                        model = item.recipe.imagePath,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(56.dp)
-                                            .clip(RoundedCornerShape(8.dp)),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                },
-                                modifier = Modifier.clickable { onRecipeClick(item.recipe.id) }
-                            )
-                            HorizontalDivider()
-                        }
-                    }
                 }
-                
-                if (isLoading) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            } else if (filteredRecipes.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (searchQuery.isEmpty()) "No recipes found. Tap + to add one!" else "No matching recipes found.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(bottom = 80.dp)
+                ) {
+                    items(filteredRecipes, key = { it.recipe.id }) { item ->
+                        RecipeItem(
+                            recipeWithDetails = item,
+                            onClick = { onRecipeClick(item.recipe.id) }
+                        )
+                    }
                 }
             }
         }
@@ -208,48 +228,51 @@ fun RecipeListScreen(
         if (showDialog) {
             AlertDialog(
                 onDismissRequest = { showDialog = false },
-                title = { Text("Add New Recipe") },
+                title = { Text("Add Recipe") },
                 text = {
-                    Column {
-                        TextField(
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedTextField(
                             value = urlText,
                             onValueChange = { urlText = it },
-                            label = { Text("Enter Website URL") },
+                            label = { Text("Recipe Website URL") },
+                            placeholder = { Text("https://example.com/recipe") },
+                            singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = "Or import from photos / PDF via AI scan")
+
                         Text(
-                            text = "(Tip: Select multiple photos if food and text are on separate pages)",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary
+                            text = "— OR —",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                            color = MaterialTheme.colorScheme.outline
                         )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton(
-                                onClick = { imagePickerLauncher.launch("image/*") },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Pick Images")
-                            }
-                            OutlinedButton(
-                                onClick = { pdfPickerLauncher.launch("application/pdf") },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Pick PDF")
-                            }
+
+                        Button(
+                            onClick = { imagePickerLauncher.launch("image/*") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Pick Recipe Photo(s)")
+                        }
+
+                        OutlinedButton(
+                            onClick = { pdfPickerLauncher.launch("application/pdf") },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Pick Recipe PDF Document")
                         }
                     }
                 },
                 confirmButton = {
-                    Button(onClick = {
-                        if (urlText.isNotBlank()) {
-                            onAddRecipe(urlText)
-                            showDialog = false
-                            urlText = ""
-                        }
-                    }) {
+                    Button(
+                        onClick = {
+                            if (urlText.isNotBlank()) {
+                                onAddRecipe(urlText)
+                                showDialog = false
+                                urlText = ""
+                            }
+                        },
+                        enabled = urlText.isNotBlank()
+                    ) {
                         Text("Import URL")
                     }
                 },
@@ -260,5 +283,80 @@ fun RecipeListScreen(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun RecipeItem(
+    recipeWithDetails: RecipeWithDetails,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable { onClick() },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = recipeWithDetails.recipe.imagePath,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = recipeWithDetails.recipe.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = recipeWithDetails.recipe.category,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                val lastCookedDays = formatLastCookedDays(recipeWithDetails.recipe.lastCooked)
+                Text(
+                    text = "Cooked ${recipeWithDetails.recipe.cookCount} times • $lastCookedDays",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+    }
+}
+
+private fun formatLastCookedDays(lastCookedEpochMs: Long): String {
+    if (lastCookedEpochMs == 0L) return "Never cooked"
+    
+    val lastCookedDate = Instant.ofEpochMilli(lastCookedEpochMs)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+    
+    val today = LocalDate.now()
+    val daysAgo = ChronoUnit.DAYS.between(lastCookedDate, today)
+
+    return when {
+        daysAgo == 0L -> "Cooked today"
+        daysAgo == 1L -> "Cooked yesterday"
+        daysAgo > 1L -> "Cooked $daysAgo days ago"
+        else -> "Cooked recently"
     }
 }
