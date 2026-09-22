@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.MealPlan
@@ -358,12 +359,8 @@ private fun MealPlanItemRow(
                     text = mealPlanWithRecipe.displayTitle,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 1
-                )
-                Text(
-                    text = mealPlanWithRecipe.displayCategory,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 

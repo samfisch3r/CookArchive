@@ -58,6 +58,8 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
     val isLoading by viewModel.isLoading.collectAsState()
     val recipeWishes by viewModel.recipeWishes.collectAsState()
 
+    val plannedDates = remember(mealPlans) { mealPlans.map { it.mealPlan.date }.toSet() }
+
     var activeTab by remember { mutableStateOf(MainTab.MenuPlan) }
     var activeSubScreen by remember { mutableStateOf<SubScreen>(SubScreen.None) }
 
@@ -131,6 +133,7 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                     currentRecipe?.let { recipe ->
                         RecipeDetailScreen(
                             recipeWithDetails = recipe,
+                            plannedDates = plannedDates,
                             onStartCooking = { activeSubScreen = SubScreen.Cooking },
                             onEdit = { activeSubScreen = SubScreen.Edit },
                             onDelete = {

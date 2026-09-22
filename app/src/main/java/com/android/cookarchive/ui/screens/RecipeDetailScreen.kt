@@ -31,6 +31,7 @@ import java.util.Locale
 @Composable
 fun RecipeDetailScreen(
     recipeWithDetails: RecipeWithDetails,
+    plannedDates: Set<String> = emptySet(),
     onStartCooking: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -57,17 +58,17 @@ fun RecipeDetailScreen(
                         Icon(Icons.Default.Edit, contentDescription = "Edit")
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Default.Delete, 
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                        Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
                 }
             )
         },
         bottomBar = {
-            Surface(tonalElevation = 3.dp) {
+            Surface(
+                tonalElevation = 8.dp,
+                shadowElevation = 8.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -78,17 +79,17 @@ fun RecipeDetailScreen(
                         onClick = { showMenuPlanDialog = true },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.CalendarMonth, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Add to Menu Plan")
+                        Icon(Icons.Default.CalendarMonth, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add to Menu")
                     }
 
                     Button(
                         onClick = onStartCooking,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Icon(Icons.Default.Restaurant, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(Icons.Default.Restaurant, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text("Start Cooking")
                     }
                 }
@@ -98,135 +99,156 @@ fun RecipeDetailScreen(
         LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            contentPadding = PaddingValues(16.dp)
         ) {
+            // Main Hero Image
             item {
-                if (recipeWithDetails.recipe.imagePath != null) {
+                if (!recipeWithDetails.recipe.imagePath.isNullOrBlank()) {
                     AsyncImage(
                         model = recipeWithDetails.recipe.imagePath,
-                        contentDescription = null,
+                        contentDescription = recipeWithDetails.recipe.title,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp),
+                            .height(220.dp)
+                            .clip(RoundedCornerShape(12.dp)),
                         contentScale = ContentScale.Crop
                     )
-                }
-                Column(modifier = Modifier.padding(16.dp)) {
-                    if (recipeWithDetails.recipe.description.isNotBlank()) {
-                        Text(
-                            text = recipeWithDetails.recipe.description,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                    
-                    // Cook Tracking Stats
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val count = recipeWithDetails.recipe.cookCount
-                            val lastCookedText = if (recipeWithDetails.recipe.lastCooked == 0L) {
-                                "Never"
-                            } else {
-                                Instant.ofEpochMilli(recipeWithDetails.recipe.lastCooked)
-                                    .atZone(ZoneId.systemDefault())
-                                    .format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))
-                            }
-
-                            Text(
-                                text = "Cooked: $count times",
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "Last: $lastCookedText",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
                     Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text("Adjust Servings:", fontWeight = FontWeight.Bold)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Slider(
-                            value = servings.toFloat(),
-                            onValueChange = { servings = it.toInt() },
-                            valueRange = 1f..6f,
-                            steps = 4,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(text = "$servings Servings", modifier = Modifier.padding(start = 8.dp))
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Ingredients:", style = MaterialTheme.typography.titleLarge)
                 }
             }
-            
-            items(recipeWithDetails.ingredients) { ingredient ->
-                val scaledQuantity = ingredient.quantity * scaleFactor
-                val formattedQty = if (scaledQuantity > 0) {
-                    if (scaledQuantity % 1.0 == 0.0) {
-                        "${scaledQuantity.toInt()} ${ingredient.unit}".trim()
-                    } else {
-                        String.format(Locale.US, "%.1f %s", scaledQuantity, ingredient.unit).trim()
-                    }
-                } else {
-                    ingredient.unit
-                }
 
+            // Category & Description
+            item {
+                Text(
+                    text = recipeWithDetails.recipe.category.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                if (recipeWithDetails.recipe.description.isNotBlank()) {
+                    Text(
+                        text = recipeWithDetails.recipe.description,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                
+                // Cook Tracking Stats
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val count = recipeWithDetails.recipe.cookCount
+                        val lastCookedText = if (recipeWithDetails.recipe.lastCooked == 0L) {
+                            "Never"
+                        } else {
+                            Instant.ofEpochMilli(recipeWithDetails.recipe.lastCooked)
+                                .atZone(ZoneId.systemDefault())
+                                .format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))
+                        }
+
+                        Text(
+                            text = "Cooked: $count times",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Last: $lastCookedText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text("Adjust Servings:", fontWeight = FontWeight.Bold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Slider(
+                        value = servings.toFloat(),
+                        onValueChange = { servings = it.toInt() },
+                        valueRange = 1f..6f,
+                        steps = 4,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(text = "$servings Servings", modifier = Modifier.padding(start = 8.dp))
+                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            }
+
+            // Ingredients Section
+            item {
+                Text(
+                    text = "Ingredients",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            items(recipeWithDetails.ingredients) { ingredient ->
+                val scaledQty = ingredient.quantity * scaleFactor
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
                         text = ingredient.name,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodyLarge
+                        modifier = Modifier.weight(1f)
                     )
-                    if (formattedQty.isNotBlank()) {
-                        Text(
-                            text = formattedQty,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    Text(
+                        text = formatQuantity(scaledQty, ingredient.unit),
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
                 }
             }
-            
+
+            // Steps Section
             item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Instructions:", style = MaterialTheme.typography.titleLarge)
-                }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+                Text(
+                    text = "Instructions",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
             }
-            
+
             items(recipeWithDetails.steps) { step ->
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Step ${step.stepNumber}:", fontWeight = FontWeight.Bold)
-                    if (step.stepImagePath != null) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Step ${step.stepNumber}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (!step.stepImagePath.isNullOrBlank()) {
                         AsyncImage(
                             model = step.stepImagePath,
                             contentDescription = null,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(150.dp)
-                                .padding(vertical = 8.dp)
+                                .height(160.dp)
+                                .padding(bottom = 8.dp)
                                 .clip(RoundedCornerShape(8.dp)),
                             contentScale = ContentScale.Crop
                         )
@@ -239,6 +261,7 @@ fun RecipeDetailScreen(
         if (showMenuPlanDialog) {
             AddToMenuPlanDialog(
                 recipeWithDetails = recipeWithDetails,
+                plannedDates = plannedDates,
                 scaleFactor = scaleFactor,
                 onDismiss = { showMenuPlanDialog = false },
                 onConfirm = { date, selectedIngredients ->
@@ -253,6 +276,7 @@ fun RecipeDetailScreen(
 @Composable
 private fun AddToMenuPlanDialog(
     recipeWithDetails: RecipeWithDetails,
+    plannedDates: Set<String>,
     scaleFactor: Double,
     onDismiss: () -> Unit,
     onConfirm: (String, List<Ingredient>) -> Unit
@@ -300,6 +324,7 @@ private fun AddToMenuPlanDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         daySlots.take(3).forEach { slot ->
+                            val hasPlannedMeals = slot.isoDate in plannedDates
                             FilterChip(
                                 selected = selectedIsoDate == slot.isoDate,
                                 onClick = { selectedIsoDate = slot.isoDate },
@@ -316,6 +341,14 @@ private fun AddToMenuPlanDialog(
                                         )
                                     }
                                 },
+                                colors = if (hasPlannedMeals && selectedIsoDate != slot.isoDate) {
+                                    FilterChipDefaults.filterChipColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                } else {
+                                    FilterChipDefaults.filterChipColors()
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -326,6 +359,7 @@ private fun AddToMenuPlanDialog(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         daySlots.drop(3).forEach { slot ->
+                            val hasPlannedMeals = slot.isoDate in plannedDates
                             FilterChip(
                                 selected = selectedIsoDate == slot.isoDate,
                                 onClick = { selectedIsoDate = slot.isoDate },
@@ -341,6 +375,14 @@ private fun AddToMenuPlanDialog(
                                             style = MaterialTheme.typography.labelSmall
                                         )
                                     }
+                                },
+                                colors = if (hasPlannedMeals && selectedIsoDate != slot.isoDate) {
+                                    FilterChipDefaults.filterChipColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        labelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                } else {
+                                    FilterChipDefaults.filterChipColors()
                                 },
                                 modifier = Modifier.weight(1f)
                             )
@@ -373,42 +415,32 @@ private fun AddToMenuPlanDialog(
                     }
                 }
 
-                Text(
-                    text = "Check ingredients you need to buy (unchecked items won't be added):",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
-                    items(recipeWithDetails.ingredients) { ingredient ->
-                        val isChecked = checkedMap[ingredient.id] == true
-                        val scaledQty = ingredient.quantity * scaleFactor
-                        val qtyStr = if (scaledQty > 0) {
-                            if (scaledQty % 1.0 == 0.0) "${scaledQty.toInt()} ${ingredient.unit}".trim()
-                            else String.format(Locale.US, "%.1f %s", scaledQty, ingredient.unit).trim()
-                        } else ingredient.unit
+                LazyColumn(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    items(recipeWithDetails.ingredients, key = { it.id }) { ing ->
+                        val scaledQty = ing.quantity * scaleFactor
+                        val isChecked = checkedMap[ing.id] == true
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { checkedMap[ingredient.id] = !isChecked }
-                                .padding(vertical = 4.dp),
+                                .clickable { checkedMap[ing.id] = !isChecked },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Checkbox(
                                 checked = isChecked,
-                                onCheckedChange = { checkedMap[ingredient.id] = it }
+                                onCheckedChange = { checkedMap[ing.id] = it }
                             )
                             Text(
-                                text = ingredient.name,
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = qtyStr,
+                                text = ing.name,
                                 style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = formatQuantity(scaledQty, ing.unit),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                     }
@@ -416,13 +448,15 @@ private fun AddToMenuPlanDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                val selectedIngredients = recipeWithDetails.ingredients.filter {
-                    checkedMap[it.id] == true
+            Button(
+                onClick = {
+                    val selectedIngredients = recipeWithDetails.ingredients.filter {
+                        checkedMap[it.id] == true
+                    }
+                    onConfirm(selectedIsoDate, selectedIngredients)
                 }
-                onConfirm(selectedIsoDate, selectedIngredients)
-            }) {
-                Text("Confirm & Plan")
+            ) {
+                Text("Add to Plan")
             }
         },
         dismissButton = {
@@ -431,4 +465,14 @@ private fun AddToMenuPlanDialog(
             }
         }
     )
+}
+
+private fun formatQuantity(quantity: Double, unit: String): String {
+    if (quantity <= 0.0) return unit
+    val formattedQty = if (quantity % 1.0 == 0.0) {
+        quantity.toInt().toString()
+    } else {
+        String.format(Locale.US, "%.1f", quantity)
+    }
+    return if (unit.isBlank()) formattedQty else "$formattedQty $unit"
 }
