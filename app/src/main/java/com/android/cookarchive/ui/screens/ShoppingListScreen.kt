@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -14,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.android.cookarchive.data.entities.ShoppingListItem
@@ -94,6 +97,9 @@ fun ShoppingListScreen(
                             onValueChange = { nameInput = it },
                             label = { Text("Item Name") },
                             singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words
+                            ),
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
@@ -101,14 +107,20 @@ fun ShoppingListScreen(
                             onValueChange = { qtyInput = it },
                             label = { Text("Qty") },
                             singleLine = true,
-                            modifier = Modifier.width(70.dp)
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Decimal
+                            ),
+                            modifier = Modifier.width(75.dp)
                         )
                         OutlinedTextField(
                             value = unitInput,
                             onValueChange = { unitInput = it },
                             label = { Text("Unit") },
                             singleLine = true,
-                            modifier = Modifier.width(70.dp)
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words
+                            ),
+                            modifier = Modifier.width(80.dp)
                         )
                         IconButton(
                             onClick = {
@@ -135,28 +147,16 @@ fun ShoppingListScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Your shopping list is empty!",
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = "Your shopping list is empty.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                    modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                 ) {
                     if (pendingItems.isNotEmpty()) {
-                        item {
-                            Text(
-                                text = "Still Needed (${pendingItems.size})",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
                         items(pendingItems, key = { it.id }) { item ->
                             ShoppingRow(
                                 item = item,
@@ -215,7 +215,7 @@ private fun ShoppingRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable { onToggleBought() }, // 1-tap anywhere on the row toggles item to cart
+            .clickable { onToggleBought() },
         shape = MaterialTheme.shapes.small,
         tonalElevation = if (item.isBought) 0.dp else 2.dp,
         color = if (item.isBought) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
@@ -258,17 +258,15 @@ private fun ShoppingRow(
                 } else {
                     String.format(Locale.US, "%.1f %s", item.quantity, item.unit).trim()
                 }
-            } else {
-                item.unit
-            }
+            } else ""
 
             if (qtyStr.isNotBlank()) {
                 Text(
                     text = qtyStr,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
-                    color = if (item.isBought) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 8.dp)
                 )
             }
 
@@ -323,6 +321,9 @@ private fun EditShoppingItemDialog(
                     onValueChange = { editName = it },
                     label = { Text("Name") },
                     singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Words
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(
@@ -334,6 +335,9 @@ private fun EditShoppingItemDialog(
                         onValueChange = { editQty = it },
                         label = { Text("Qty") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal
+                        ),
                         modifier = Modifier.weight(1f)
                     )
                     OutlinedTextField(
@@ -341,6 +345,9 @@ private fun EditShoppingItemDialog(
                         onValueChange = { editUnit = it },
                         label = { Text("Unit") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words
+                        ),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -349,8 +356,16 @@ private fun EditShoppingItemDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val q = editQty.replace(",", ".").toDoubleOrNull() ?: 0.0
-                    onSave(item.copy(name = editName.trim(), quantity = q, unit = editUnit.trim()))
+                    if (editName.isNotBlank()) {
+                        val parsedQty = editQty.replace(",", ".").toDoubleOrNull() ?: 1.0
+                        onSave(
+                            item.copy(
+                                name = editName.trim(),
+                                quantity = parsedQty,
+                                unit = editUnit.trim()
+                            )
+                        )
+                    }
                 }
             ) {
                 Text("Save")

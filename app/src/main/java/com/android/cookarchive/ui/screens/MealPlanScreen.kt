@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,10 +30,13 @@ import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.MealPlanWithRecipe
 import com.android.cookarchive.util.WebSyncUtil
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 data class DaySlot(
     val isoDate: String,
@@ -72,15 +77,27 @@ fun MealPlanScreen(
     onAddCustomMealPlan: (String, String) -> Unit,
     onMoveMealPlan: (Long, String) -> Unit,
     onDeleteMealPlan: (MealPlan) -> Unit,
-    onDismissWish: (String) -> Unit = {}
+    onDismissWish: (String) -> Unit = {},
+    onRefreshWishes: () -> Unit = {}
 ) {
     val daySlots = remember { getNext5Days() }
     val mealPlansByDate = mealPlans.groupBy { it.mealPlan.date }
     val context = LocalContext.current
 
+    var isRefreshing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
     var showCustomDialog by remember { mutableStateOf(false) }
     var targetSlotForCustomNote by remember { mutableStateOf<DaySlot?>(null) }
     var customNoteText by remember { mutableStateOf("") }
+
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(recipeWishes.size) {
+        if (recipeWishes.isNotEmpty()) {
+            listState.animateScrollToItem(0)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -104,70 +121,84 @@ fun MealPlanScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                scope.launch {
+                    isRefreshing = true
+                    onRefreshWishes()
+                    delay(800.milliseconds)
+                    isRefreshing = false
+                }
+            },
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .fillMaxSize()
         ) {
-            if (recipeWishes.isNotEmpty()) {
-                item(key = "card_wishes") {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = "✨ Household Meal Requests (${recipeWishes.size})",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                if (recipeWishes.isNotEmpty()) {
+                    item(key = "card_wishes") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer
                             )
-                            recipeWishes.forEach { wish ->
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surface,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = "✨ Household Meal Requests (${recipeWishes.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                recipeWishes.forEach { wish ->
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surface,
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        Text(
-                                            text = wish.title,
-                                            fontWeight = FontWeight.Bold,
-                                            style = MaterialTheme.typography.bodyLarge,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Row {
-                                            IconButton(onClick = {
-                                                targetSlotForCustomNote = daySlots.first()
-                                                customNoteText = wish.title
-                                                showCustomDialog = true
-                                            }) {
-                                                Icon(
-                                                    Icons.Default.Add,
-                                                    contentDescription = "Schedule Wish",
-                                                    tint = MaterialTheme.colorScheme.primary
-                                                )
-                                            }
-                                            IconButton(onClick = { onDismissWish(wish.id) }) {
-                                                Icon(
-                                                    Icons.Default.Delete,
-                                                    contentDescription = "Dismiss Wish",
-                                                    tint = MaterialTheme.colorScheme.error
-                                                )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Text(
+                                                text = wish.title,
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.bodyLarge,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Row {
+                                                IconButton(onClick = {
+                                                    targetSlotForCustomNote = daySlots.first()
+                                                    customNoteText = wish.title
+                                                    showCustomDialog = true
+                                                }) {
+                                                    Icon(
+                                                        Icons.Default.Add,
+                                                        contentDescription = "Schedule Wish",
+                                                        tint = MaterialTheme.colorScheme.primary
+                                                    )
+                                                }
+                                                IconButton(onClick = { onDismissWish(wish.id) }) {
+                                                    Icon(
+                                                        Icons.Default.Delete,
+                                                        contentDescription = "Dismiss Wish",
+                                                        tint = MaterialTheme.colorScheme.error
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -176,84 +207,84 @@ fun MealPlanScreen(
                         }
                     }
                 }
-            }
 
-            items(daySlots, key = { it.isoDate }) { slot ->
-                val mealsForDay = mealPlansByDate[slot.isoDate] ?: emptyList()
+                items(daySlots, key = { it.isoDate }) { slot ->
+                    val mealsForDay = mealPlansByDate[slot.isoDate] ?: emptyList()
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (mealsForDay.isNotEmpty()) 
-                            MaterialTheme.colorScheme.surfaceContainerHigh 
-                        else MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (mealsForDay.isNotEmpty()) 
+                                MaterialTheme.colorScheme.surfaceContainerHigh 
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
-                        // Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
                         ) {
-                            Column {
-                                Text(
-                                    text = slot.displayTitle,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = slot.formattedDateStr,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-
-                            TextButton(
-                                onClick = {
-                                    targetSlotForCustomNote = slot
-                                    customNoteText = ""
-                                    showCustomDialog = true
-                                }
+                            // Header
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Default.EditNote,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Add Custom")
+                                Column {
+                                    Text(
+                                        text = slot.displayTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = slot.formattedDateStr,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                TextButton(
+                                    onClick = {
+                                        targetSlotForCustomNote = slot
+                                        customNoteText = ""
+                                        showCustomDialog = true
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Default.EditNote,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Add Custom")
+                                }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        if (mealsForDay.isEmpty()) {
-                            Text(
-                                text = "No meals planned for this day.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        } else {
-                            mealsForDay.forEach { item ->
-                                MealPlanItemRow(
-                                    mealPlanWithRecipe = item,
-                                    availableDays = daySlots,
-                                    onCook = {
-                                        item.recipeWithDetails?.recipe?.id?.let { recipeId ->
-                                            onCookRecipe(recipeId)
-                                        }
-                                    },
-                                    onMoveToDate = { newDate -> onMoveMealPlan(item.mealPlan.id, newDate) },
-                                    onDelete = { onDeleteMealPlan(item.mealPlan) }
+                            if (mealsForDay.isEmpty()) {
+                                Text(
+                                    text = "No meals planned for this day.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(vertical = 8.dp)
                                 )
-                                Spacer(modifier = Modifier.height(8.dp))
+                            } else {
+                                mealsForDay.forEach { item ->
+                                    MealPlanItemRow(
+                                        mealPlanWithRecipe = item,
+                                        availableDays = daySlots,
+                                        onCook = {
+                                            item.recipeWithDetails?.recipe?.id?.let { recipeId ->
+                                                onCookRecipe(recipeId)
+                                            }
+                                        },
+                                        onMoveToDate = { newDate -> onMoveMealPlan(item.mealPlan.id, newDate) },
+                                        onDelete = { onDeleteMealPlan(item.mealPlan) }
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
                             }
                         }
                     }

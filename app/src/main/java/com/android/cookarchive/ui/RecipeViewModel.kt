@@ -418,7 +418,9 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
             val mealPlansByDate = allPlans.groupBy { it.mealPlan.date }
             val recipesList = dao.getAllRecipes().firstOrNull() ?: emptyList()
-            WebSyncUtil.syncMealPlanToWeb(days, mealPlansByDate, recipesList, _recipeWishes.value)
+            val activeWishes = WebSyncUtil.fetchWishesFromWeb()
+            _recipeWishes.value = activeWishes
+            WebSyncUtil.syncMealPlanToWeb(days, mealPlansByDate, recipesList, activeWishes)
         } catch (e: Exception) {
             e.printStackTrace()
         }

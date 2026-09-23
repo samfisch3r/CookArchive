@@ -197,6 +197,9 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                                 },
                                 onDismissWish = { wishId ->
                                     viewModel.dismissWish(wishId)
+                                },
+                                onRefreshWishes = {
+                                    viewModel.fetchRecipeWishes()
                                 }
                             )
                         }
