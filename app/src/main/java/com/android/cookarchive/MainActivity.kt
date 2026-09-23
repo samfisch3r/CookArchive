@@ -184,7 +184,7 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                                 recipeWishes = recipeWishes,
                                 onCookRecipe = { recipeId ->
                                     viewModel.loadRecipe(recipeId)
-                                    activeSubScreen = SubScreen.Cooking
+                                    activeSubScreen = SubScreen.Detail
                                 },
                                 onAddCustomMealPlan = { customTitle, date ->
                                     viewModel.addCustomMealPlan(customTitle, date)

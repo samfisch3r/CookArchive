@@ -2,6 +2,7 @@ package com.android.cookarchive.ui.screens
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,7 +12,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -315,11 +315,18 @@ private fun MealPlanItemRow(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val isClickable = mealPlanWithRecipe.isRecipe && mealPlanWithRecipe.recipeWithDetails != null
 
     Surface(
         shape = RoundedCornerShape(12.dp),
         tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isClickable) {
+                    Modifier.clickable { onCook() }
+                } else Modifier
+            )
     ) {
         Row(
             modifier = Modifier
@@ -362,16 +369,6 @@ private fun MealPlanItemRow(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-
-            if (mealPlanWithRecipe.isRecipe) {
-                IconButton(onClick = onCook) {
-                    Icon(
-                        Icons.Default.PlayArrow,
-                        contentDescription = "Cook Now",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
             }
 
             Box {
