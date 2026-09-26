@@ -46,6 +46,7 @@ object BackupUtil {
                 rJson.put("description", r.description)
                 rJson.put("category", r.category)
                 rJson.put("defaultServings", r.defaultServings)
+                rJson.put("currentServings", r.currentServings)
                 rJson.put("lastCooked", r.lastCooked)
                 rJson.put("cookCount", r.cookCount)
 
@@ -201,6 +202,7 @@ object BackupUtil {
                     description = rJson.optString("description", "").trim(),
                     category = rJson.optString("category", "General").trim(),
                     defaultServings = rJson.optInt("defaultServings", 4),
+                    currentServings = rJson.optInt("currentServings", existingRecipeDetails?.recipe?.currentServings ?: 0),
                     lastCooked = if (rJson.has("lastCooked") && !rJson.isNull("lastCooked")) rJson.getLong("lastCooked") else (existingRecipeDetails?.recipe?.lastCooked ?: 0L),
                     cookCount = rJson.optInt("cookCount", existingRecipeDetails?.recipe?.cookCount ?: 0),
                     imagePath = localImagePath

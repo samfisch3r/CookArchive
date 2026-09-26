@@ -17,5 +17,8 @@ data class Recipe(
     val lastCooked: Long = 0L,
     
     @ColumnInfo(defaultValue = "0")
-    val cookCount: Int = 0
+    val cookCount: Int = 0,
+
+    @ColumnInfo(defaultValue = "0")
+    val currentServings: Int = 0
 )

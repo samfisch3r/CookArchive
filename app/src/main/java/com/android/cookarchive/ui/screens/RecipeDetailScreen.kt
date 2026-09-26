@@ -35,12 +35,14 @@ fun RecipeDetailScreen(
     onStartCooking: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onUpdateServings: (Int) -> Unit = {},
     onAddToMenuPlan: (String, List<Ingredient>, Double) -> Unit,
     onBack: () -> Unit
 ) {
     val baseServings = recipeWithDetails.recipe.defaultServings.coerceAtLeast(1)
-    val maxServingsRange = maxOf(6, baseServings)
-    var servings by remember(baseServings) { mutableIntStateOf(baseServings) }
+    val initialServings = recipeWithDetails.currentOrBaseServings
+    val maxServingsRange = maxOf(6, baseServings, initialServings)
+    var servings by remember(recipeWithDetails.recipe.id, initialServings) { mutableIntStateOf(initialServings) }
     val scaleFactor = servings.toDouble() / baseServings
 
     var showMenuPlanDialog by remember { mutableStateOf(false) }
@@ -178,7 +180,11 @@ fun RecipeDetailScreen(
                 ) {
                     Slider(
                         value = servings.toFloat(),
-                        onValueChange = { servings = it.toInt() },
+                        onValueChange = {
+                            val newServings = it.toInt()
+                            servings = newServings
+                            onUpdateServings(newServings)
+                        },
                         valueRange = 1f..maxServingsRange.toFloat(),
                         steps = maxOf(0, maxServingsRange - 2),
                         modifier = Modifier.weight(1f)

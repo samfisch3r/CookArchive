@@ -260,6 +260,14 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun updateServings(recipeId: Long, servings: Int) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                dao.updateRecipeServings(recipeId, servings)
+            }
+        }
+    }
+
     fun addCustomMealPlan(customTitle: String, date: String) {
         if (customTitle.isBlank()) return
         viewModelScope.launch {

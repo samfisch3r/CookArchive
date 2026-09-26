@@ -15,4 +15,10 @@ data class RecipeWithDetails(
         entityColumn = "recipeId"
     )
     val steps: List<InstructionStep>
-)
+) {
+    val currentOrBaseServings: Int
+        get() = if (recipe.currentServings > 0) recipe.currentServings else recipe.defaultServings.coerceAtLeast(1)
+
+    val scaleFactor: Double
+        get() = currentOrBaseServings.toDouble() / recipe.defaultServings.coerceAtLeast(1)
+}

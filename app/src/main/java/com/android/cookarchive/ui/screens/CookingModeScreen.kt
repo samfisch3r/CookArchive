@@ -229,6 +229,8 @@ fun CookingModeScreen(
         }
 
         if (showIngredientsSheet) {
+            val scaleFactor = recipeWithDetails.scaleFactor
+            val servings = recipeWithDetails.currentOrBaseServings
             ModalBottomSheet(
                 onDismissRequest = { showIngredientsSheet = false }
             ) {
@@ -238,7 +240,7 @@ fun CookingModeScreen(
                         .padding(bottom = 32.dp)
                 ) {
                     Text(
-                        text = "Ingredients List",
+                        text = "Ingredients List ($servings Servings)",
                         style = MaterialTheme.typography.titleLarge,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
                     )
@@ -247,11 +249,12 @@ fun CookingModeScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         items(recipeWithDetails.ingredients) { ingredient ->
-                            val qtyStr = if (ingredient.quantity > 0) {
-                                if (ingredient.quantity % 1.0 == 0.0) {
-                                    "${ingredient.quantity.toInt()} ${ingredient.unit}".trim()
+                            val scaledQty = ingredient.quantity * scaleFactor
+                            val qtyStr = if (scaledQty > 0) {
+                                if (scaledQty % 1.0 == 0.0) {
+                                    "${scaledQty.toInt()} ${ingredient.unit}".trim()
                                 } else {
-                                    String.format(Locale.US, "%.1f %s", ingredient.quantity, ingredient.unit).trim()
+                                    String.format(Locale.US, "%.1f %s", scaledQty, ingredient.unit).trim()
                                 }
                             } else {
                                 ingredient.unit

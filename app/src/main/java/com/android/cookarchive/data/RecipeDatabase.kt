@@ -48,9 +48,10 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         MealPlan::class, 
         ShoppingListItem::class
     ],
-    version = 4,
+    version = 5,
     autoMigrations = [
-        AutoMigration(from = 2, to = 3)
+        AutoMigration(from = 2, to = 3),
+        AutoMigration(from = 4, to = 5)
     ],
     exportSchema = true
 )

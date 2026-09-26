@@ -141,6 +141,9 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                                 activeSubScreen = SubScreen.None
                                 activeTab = MainTab.Recipes
                             },
+                            onUpdateServings = { servings ->
+                                viewModel.updateServings(recipe.recipe.id, servings)
+                            },
                             onAddToMenuPlan = { date, selectedIngredients, scaleFactor ->
                                 viewModel.addMealPlan(
                                     recipe = recipe.recipe,

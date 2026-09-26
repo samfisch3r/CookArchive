@@ -66,6 +66,9 @@ interface RecipeDao {
     @Query("UPDATE recipes SET cookCount = cookCount + 1, lastCooked = :lastCookedMs WHERE id = :recipeId")
     fun updateRecipeCookStats(recipeId: Long, lastCookedMs: Long)
 
+    @Query("UPDATE recipes SET currentServings = :servings WHERE id = :recipeId")
+    fun updateRecipeServings(recipeId: Long, servings: Int)
+
     // Shopping List queries
     @Query("SELECT * FROM shopping_list_items ORDER BY isBought ASC, name ASC")
     fun getAllShoppingItems(): Flow<List<ShoppingListItem>>
