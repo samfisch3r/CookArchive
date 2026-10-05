@@ -69,9 +69,12 @@ fun RecipeListScreen(
         }
     }
 
-    val filteredRecipes = recipes.filter { 
-        it.recipe.title.contains(searchQuery, ignoreCase = true) ||
-        it.recipe.category.contains(searchQuery, ignoreCase = true)
+    val query = searchQuery.trim()
+    val filteredRecipes = recipes.filter { item ->
+        query.isEmpty() ||
+        item.recipe.title.contains(query, ignoreCase = true) ||
+        item.recipe.category.contains(query, ignoreCase = true) ||
+        item.ingredients.any { it.name.contains(query, ignoreCase = true) }
     }.let { list ->
         when (sortMode) {
             SortMode.A_Z -> list.sortedWith { r1, r2 -> collator.compare(r1.recipe.title, r2.recipe.title) }
@@ -175,7 +178,7 @@ fun RecipeListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Search recipes or categories...") },
+                placeholder = { Text("Search recipes, categories, or ingredients...") },
                 singleLine = true,
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
@@ -218,6 +221,7 @@ fun RecipeListScreen(
                     items(filteredRecipes, key = { it.recipe.id }) { item ->
                         RecipeItem(
                             recipeWithDetails = item,
+                            searchQuery = searchQuery,
                             onClick = { onRecipeClick(item.recipe.id) }
                         )
                     }
@@ -289,8 +293,23 @@ fun RecipeListScreen(
 @Composable
 private fun RecipeItem(
     recipeWithDetails: RecipeWithDetails,
+    searchQuery: String = "",
     onClick: () -> Unit
 ) {
+    val query = searchQuery.trim()
+    val matchingIngredients = remember(recipeWithDetails, query) {
+        if (query.isNotEmpty() &&
+            !recipeWithDetails.recipe.title.contains(query, ignoreCase = true) &&
+            !recipeWithDetails.recipe.category.contains(query, ignoreCase = true)
+        ) {
+            recipeWithDetails.ingredients
+                .filter { it.name.contains(query, ignoreCase = true) }
+                .map { it.name }
+        } else {
+            emptyList()
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -329,6 +348,16 @@ private fun RecipeItem(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
+
+                if (matchingIngredients.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Includes: ${matchingIngredients.joinToString(", ")}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
