@@ -9,6 +9,7 @@ import androidx.room.withTransaction
 import com.android.cookarchive.data.RecipeDatabase
 import com.android.cookarchive.data.entities.Ingredient
 import com.android.cookarchive.data.entities.InstructionStep
+import com.android.cookarchive.data.entities.MealHistoryItem
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.Recipe
 import com.android.cookarchive.data.entities.RecipeWithDetails
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -100,11 +102,18 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                                 pastPlan.mealPlan.recipeId?.let { recipeId ->
                                     dao.updateRecipeCookStats(recipeId, lastCookedMs)
                                 }
+                                dao.insertMealHistory(
+                                    MealHistoryItem(
+                                        title = pastPlan.displayTitle,
+                                        date = pastPlan.mealPlan.date
+                                    )
+                                )
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
                         }
                         dao.deletePastMealPlans(todayIso)
+                        dao.trimMealHistory()
                     }
                 }
                 syncMealPlanToWeb()
@@ -428,7 +437,34 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             val recipesList = dao.getAllRecipes().firstOrNull() ?: emptyList()
             val activeWishes = WebSyncUtil.fetchWishesFromWeb()
             _recipeWishes.value = activeWishes
-            WebSyncUtil.syncMealPlanToWeb(days, mealPlansByDate, recipesList, activeWishes)
+
+            val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+            val historyFromDb = dao.getRecentMealHistorySync(15)
+                .filter { it.date < todayIso }
+
+            val historyEntries = if (historyFromDb.isNotEmpty()) {
+                historyFromDb.take(7).map { WebSyncUtil.HistoryEntry(it.title, it.date) }
+            } else {
+                val isoFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+                recipesList.filter { it.recipe.lastCooked > 0 }
+                    .sortedByDescending { it.recipe.lastCooked }
+                    .mapNotNull {
+                        val dateStr = Instant.ofEpochMilli(it.recipe.lastCooked)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                            .format(isoFormatter)
+                        if (dateStr < todayIso) WebSyncUtil.HistoryEntry(it.recipe.title, dateStr) else null
+                    }
+                    .take(7)
+            }
+
+            WebSyncUtil.syncMealPlanToWeb(
+                daySlots = days,
+                mealPlansByDate = mealPlansByDate,
+                allRecipes = recipesList,
+                existingWishes = activeWishes,
+                mealHistory = historyEntries
+            )
         } catch (e: Exception) {
             e.printStackTrace()
         }

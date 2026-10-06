@@ -3,6 +3,7 @@ package com.android.cookarchive.data.dao
 import androidx.room.*
 import com.android.cookarchive.data.entities.Ingredient
 import com.android.cookarchive.data.entities.InstructionStep
+import com.android.cookarchive.data.entities.MealHistoryItem
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.MealPlanWithRecipe
 import com.android.cookarchive.data.entities.Recipe
@@ -68,6 +69,16 @@ interface RecipeDao {
 
     @Query("UPDATE recipes SET currentServings = :servings WHERE id = :recipeId")
     fun updateRecipeServings(recipeId: Long, servings: Int)
+
+    // Meal History queries
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertMealHistory(item: MealHistoryItem): Long
+
+    @Query("SELECT * FROM meal_history ORDER BY date DESC, id DESC LIMIT :limit")
+    fun getRecentMealHistorySync(limit: Int = 7): List<MealHistoryItem>
+
+    @Query("DELETE FROM meal_history WHERE id NOT IN (SELECT id FROM meal_history ORDER BY date DESC, id DESC LIMIT 30)")
+    fun trimMealHistory()
 
     // Shopping List queries
     @Query("SELECT * FROM shopping_list_items ORDER BY isBought ASC, name ASC")

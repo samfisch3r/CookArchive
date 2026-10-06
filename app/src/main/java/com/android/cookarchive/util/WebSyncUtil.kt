@@ -29,6 +29,11 @@ object WebSyncUtil {
         val timestamp: Long = System.currentTimeMillis()
     )
 
+    data class HistoryEntry(
+        val title: String,
+        val date: String
+    )
+
     suspend fun fetchWishesFromWeb(): List<MealWish> = withContext(Dispatchers.IO) {
         try {
             val targetUrl = URL("${JSONBIN_URL}/latest")
@@ -76,7 +81,8 @@ object WebSyncUtil {
         daySlots: List<DaySlot>,
         mealPlansByDate: Map<String, List<MealPlanWithRecipe>>,
         allRecipes: List<RecipeWithDetails> = emptyList(),
-        existingWishes: List<MealWish>? = null
+        existingWishes: List<MealWish>? = null,
+        mealHistory: List<HistoryEntry> = emptyList()
     ) = withContext(Dispatchers.IO) {
         try {
             val currentWishes = existingWishes ?: fetchWishesFromWeb()
@@ -135,6 +141,16 @@ object WebSyncUtil {
                 wishesArray.put(wJson)
             }
             rootJson.put("wishes", wishesArray)
+
+            // 4. Meal History Array (Last 7 meals)
+            val historyArray = JSONArray()
+            mealHistory.take(7).forEach { item ->
+                val hJson = JSONObject()
+                hJson.put("title", item.title)
+                hJson.put("date", item.date)
+                historyArray.put(hJson)
+            }
+            rootJson.put("history", historyArray)
 
             // Send PUT request to JSONBin.io to update the Bin
             val targetUrl = URL(JSONBIN_URL)

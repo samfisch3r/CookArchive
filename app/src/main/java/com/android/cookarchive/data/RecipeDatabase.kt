@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.android.cookarchive.data.dao.RecipeDao
 import com.android.cookarchive.data.entities.Ingredient
 import com.android.cookarchive.data.entities.InstructionStep
+import com.android.cookarchive.data.entities.MealHistoryItem
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.Recipe
 import com.android.cookarchive.data.entities.ShoppingListItem
@@ -46,12 +47,14 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         Ingredient::class, 
         InstructionStep::class, 
         MealPlan::class, 
-        ShoppingListItem::class
+        ShoppingListItem::class,
+        MealHistoryItem::class
     ],
-    version = 5,
+    version = 6,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
-        AutoMigration(from = 4, to = 5)
+        AutoMigration(from = 4, to = 5),
+        AutoMigration(from = 5, to = 6)
     ],
     exportSchema = true
 )
