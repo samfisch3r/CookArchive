@@ -8,6 +8,7 @@ import com.android.cookarchive.data.RecipeDatabase
 import com.android.cookarchive.data.entities.Ingredient
 import com.android.cookarchive.data.entities.InstructionStep
 import com.android.cookarchive.data.entities.Recipe
+import com.android.cookarchive.data.entities.RecipeRating
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
@@ -90,6 +91,22 @@ object BackupUtil {
                 recipesArray.put(rJson)
             }
             rootJson.put("recipes", recipesArray)
+
+            // Ratings
+            val ratings = dao.getAllRatingsSync()
+            val ratingsArray = JSONArray()
+            ratings.forEach { r ->
+                val rJson = JSONObject()
+                rJson.put("id", r.id)
+                rJson.put("recipeId", r.recipeId)
+                rJson.put("title", r.title)
+                rJson.put("rating", r.rating)
+                rJson.put("date", r.date)
+                rJson.put("comment", r.comment)
+                rJson.put("timestamp", r.timestamp)
+                ratingsArray.put(rJson)
+            }
+            rootJson.put("ratings", ratingsArray)
 
             // Write ZIP stream to destUri
             context.contentResolver.openOutputStream(destUri)?.use { outStream ->
@@ -241,16 +258,48 @@ object BackupUtil {
                     )
                 }
 
-                // Update existing recipe in place OR insert new recipe inside transaction
+                // Update existing recipe in place (prevents CASCADE deletion of meal_plans) OR insert new recipe inside transaction
                 db.withTransaction {
-                    val newRecipeId = dao.insertRecipe(recipe)
-                    val finalRecipeId = if (targetId != 0L) targetId else newRecipeId
+                    val finalRecipeId: Long
+                    if (targetId != 0L) {
+                        dao.updateRecipe(recipe)
+                        finalRecipeId = targetId
+                    } else {
+                        finalRecipeId = dao.insertRecipe(recipe)
+                    }
 
                     dao.deleteIngredientsByRecipeId(finalRecipeId)
                     dao.insertIngredients(ingredientsList.map { it.copy(recipeId = finalRecipeId) })
 
                     dao.deleteStepsByRecipeId(finalRecipeId)
                     dao.insertSteps(stepsList.map { it.copy(recipeId = finalRecipeId) })
+                }
+            }
+
+            // Restore Ratings if included in backup
+            val ratingsArray = rootJson.optJSONArray("ratings")
+            if (ratingsArray != null && ratingsArray.length() > 0) {
+                val restoredRatings = mutableListOf<RecipeRating>()
+                for (r in 0 until ratingsArray.length()) {
+                    val rJson = ratingsArray.getJSONObject(r)
+                    val title = rJson.optString("title", "").trim()
+                    val ratingVal = rJson.optInt("rating", 0)
+                    if (title.isNotBlank() && ratingVal in 1..5) {
+                        restoredRatings.add(
+                            RecipeRating(
+                                id = rJson.optString("id", "rating_${r}_${System.currentTimeMillis()}"),
+                                recipeId = if (rJson.has("recipeId") && !rJson.isNull("recipeId")) rJson.getLong("recipeId") else null,
+                                title = title,
+                                rating = ratingVal,
+                                date = rJson.optString("date", ""),
+                                comment = if (rJson.has("comment") && !rJson.isNull("comment")) rJson.getString("comment") else null,
+                                timestamp = rJson.optLong("timestamp", System.currentTimeMillis())
+                            )
+                        )
+                    }
+                }
+                if (restoredRatings.isNotEmpty()) {
+                    dao.insertRatings(restoredRatings)
                 }
             }
 

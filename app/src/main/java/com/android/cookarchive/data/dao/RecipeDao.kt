@@ -29,6 +29,9 @@ interface RecipeDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertRecipe(recipe: Recipe): Long
 
+    @Update
+    fun updateRecipe(recipe: Recipe): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertIngredients(ingredients: List<Ingredient>): List<Long>
 
@@ -48,6 +51,10 @@ interface RecipeDao {
     @Transaction
     @Query("SELECT * FROM meal_plans ORDER BY date ASC")
     fun getAllMealPlans(): Flow<List<MealPlanWithRecipe>>
+
+    @Transaction
+    @Query("SELECT * FROM meal_plans ORDER BY date ASC")
+    fun getAllMealPlansListSync(): List<MealPlanWithRecipe>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertMealPlan(mealPlan: MealPlan): Long
