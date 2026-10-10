@@ -42,6 +42,78 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        try {
+            db.execSQL("ALTER TABLE `meal_history` ADD COLUMN `recipeId` INTEGER DEFAULT NULL")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `recipe_ratings` (
+                `id` TEXT NOT NULL,
+                `recipeId` INTEGER,
+                `title` TEXT NOT NULL,
+                `rating` INTEGER NOT NULL,
+                `date` TEXT NOT NULL,
+                `comment` TEXT,
+                `timestamp` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+    }
+}
+
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        try {
+            db.execSQL("ALTER TABLE `meal_history` ADD COLUMN `recipeId` INTEGER DEFAULT NULL")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `recipe_ratings` (
+                `id` TEXT NOT NULL,
+                `recipeId` INTEGER,
+                `title` TEXT NOT NULL,
+                `rating` INTEGER NOT NULL,
+                `date` TEXT NOT NULL,
+                `comment` TEXT,
+                `timestamp` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+    }
+}
+
+val MIGRATION_6_8 = object : Migration(6, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        try {
+            db.execSQL("ALTER TABLE `meal_history` ADD COLUMN `recipeId` INTEGER DEFAULT NULL")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS `recipe_ratings` (
+                `id` TEXT NOT NULL,
+                `recipeId` INTEGER,
+                `title` TEXT NOT NULL,
+                `rating` INTEGER NOT NULL,
+                `date` TEXT NOT NULL,
+                `comment` TEXT,
+                `timestamp` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+            """.trimIndent()
+        )
+    }
+}
+
 @Database(
     entities = [
         Recipe::class, 
@@ -52,12 +124,11 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         MealHistoryItem::class,
         RecipeRating::class
     ],
-    version = 7,
+    version = 8,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6),
-        AutoMigration(from = 6, to = 7)
+        AutoMigration(from = 5, to = 6)
     ],
     exportSchema = true
 )
@@ -75,7 +146,8 @@ abstract class RecipeDatabase : RoomDatabase() {
                     RecipeDatabase::class.java,
                     "recipe_database"
                 )
-                .addMigrations(MIGRATION_3_4)
+                .addMigrations(MIGRATION_3_4, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_6_8)
+                .fallbackToDestructiveMigration(true)
                 .build()
                 INSTANCE = instance
                 instance

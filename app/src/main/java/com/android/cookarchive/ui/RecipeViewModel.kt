@@ -432,7 +432,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private suspend fun syncMealPlanToWeb() {
+    private suspend fun syncMealPlanToWeb() = withContext(Dispatchers.IO) {
         try {
             val days = getNext5Days()
             val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
