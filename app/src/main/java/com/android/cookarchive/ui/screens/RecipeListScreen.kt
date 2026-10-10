@@ -27,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import com.android.cookarchive.data.entities.RecipeRating
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import com.android.cookarchive.util.PdfUtil
 import kotlinx.coroutines.flow.SharedFlow
@@ -39,6 +40,7 @@ import java.util.Locale
 
 enum class SortMode {
     A_Z,
+    HIGHEST_RATED,
     LEAST_RECENTLY_COOKED
 }
 
@@ -46,6 +48,7 @@ enum class SortMode {
 @Composable
 fun RecipeListScreen(
     recipes: List<RecipeWithDetails>,
+    ratings: List<RecipeRating> = emptyList(),
     isLoading: Boolean,
     errorEvents: SharedFlow<String>,
     onRecipeClick: (Long) -> Unit,
@@ -78,6 +81,13 @@ fun RecipeListScreen(
     }.let { list ->
         when (sortMode) {
             SortMode.A_Z -> list.sortedWith { r1, r2 -> collator.compare(r1.recipe.title, r2.recipe.title) }
+            SortMode.HIGHEST_RATED -> list.sortedByDescending { item ->
+                val itemRatings = ratings.filter {
+                    (it.recipeId != null && it.recipeId == item.recipe.id) ||
+                    it.title.equals(item.recipe.title, ignoreCase = true)
+                }
+                if (itemRatings.isNotEmpty()) itemRatings.map { it.rating }.average() else 0.0
+            }
             SortMode.LEAST_RECENTLY_COOKED -> list.sortedBy { it.recipe.lastCooked }
         }
     }
@@ -119,12 +129,16 @@ fun RecipeListScreen(
                 title = { Text("Recipes") },
                 actions = {
                     IconButton(onClick = {
-                        sortMode = if (sortMode == SortMode.A_Z) SortMode.LEAST_RECENTLY_COOKED else SortMode.A_Z
+                        sortMode = when (sortMode) {
+                            SortMode.A_Z -> SortMode.HIGHEST_RATED
+                            SortMode.HIGHEST_RATED -> SortMode.LEAST_RECENTLY_COOKED
+                            SortMode.LEAST_RECENTLY_COOKED -> SortMode.A_Z
+                        }
                     }) {
                         Icon(
                             Icons.AutoMirrored.Filled.Sort,
                             contentDescription = "Sort Recipes",
-                            tint = if (sortMode == SortMode.LEAST_RECENTLY_COOKED) MaterialTheme.colorScheme.primary else LocalContentColor.current
+                            tint = if (sortMode != SortMode.A_Z) MaterialTheme.colorScheme.primary else LocalContentColor.current
                         )
                     }
 
@@ -222,6 +236,7 @@ fun RecipeListScreen(
                         RecipeItem(
                             recipeWithDetails = item,
                             searchQuery = searchQuery,
+                            ratings = ratings,
                             onClick = { onRecipeClick(item.recipe.id) }
                         )
                     }
@@ -294,6 +309,7 @@ fun RecipeListScreen(
 private fun RecipeItem(
     recipeWithDetails: RecipeWithDetails,
     searchQuery: String = "",
+    ratings: List<RecipeRating> = emptyList(),
     onClick: () -> Unit
 ) {
     val query = searchQuery.trim()
@@ -343,11 +359,31 @@ private fun RecipeItem(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                Text(
-                    text = recipeWithDetails.recipe.category,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = recipeWithDetails.recipe.category,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                    val itemRatings = ratings.filter {
+                        (it.recipeId != null && it.recipeId == recipeWithDetails.recipe.id) ||
+                        it.title.equals(recipeWithDetails.recipe.title, ignoreCase = true)
+                    }
+                    if (itemRatings.isNotEmpty()) {
+                        val avg = itemRatings.map { it.rating }.average()
+                        Text(
+                            text = "⭐ " + String.format(Locale.US, "%.1f", avg),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
 
                 if (matchingIngredients.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(2.dp))

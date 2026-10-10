@@ -13,6 +13,7 @@ import com.android.cookarchive.data.entities.InstructionStep
 import com.android.cookarchive.data.entities.MealHistoryItem
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.Recipe
+import com.android.cookarchive.data.entities.RecipeRating
 import com.android.cookarchive.data.entities.ShoppingListItem
 
 val MIGRATION_3_4 = object : Migration(3, 4) {
@@ -48,13 +49,15 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
         InstructionStep::class, 
         MealPlan::class, 
         ShoppingListItem::class,
-        MealHistoryItem::class
+        MealHistoryItem::class,
+        RecipeRating::class
     ],
-    version = 6,
+    version = 7,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 4, to = 5),
-        AutoMigration(from = 5, to = 6)
+        AutoMigration(from = 5, to = 6),
+        AutoMigration(from = 6, to = 7)
     ],
     exportSchema = true
 )

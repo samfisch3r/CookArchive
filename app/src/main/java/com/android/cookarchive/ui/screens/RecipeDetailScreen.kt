@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.Ingredient
+import com.android.cookarchive.data.entities.RecipeRating
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import java.time.Instant
 import java.time.ZoneId
@@ -32,6 +33,7 @@ import java.util.Locale
 fun RecipeDetailScreen(
     recipeWithDetails: RecipeWithDetails,
     plannedDates: Set<String> = emptySet(),
+    ratings: List<RecipeRating> = emptyList(),
     onStartCooking: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -159,11 +161,27 @@ fun RecipeDetailScreen(
                                 .format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US))
                         }
 
-                        Text(
-                            text = "Cooked: $count times",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Bold
-                        )
+                        val recipeRatings = ratings.filter { 
+                            (it.recipeId != null && it.recipeId == recipeWithDetails.recipe.id) ||
+                            it.title.equals(recipeWithDetails.recipe.title, ignoreCase = true) 
+                        }
+                        val avgRating = if (recipeRatings.isNotEmpty()) recipeRatings.map { it.rating }.average() else 0.0
+
+                        Column {
+                            Text(
+                                text = "Cooked: $count times",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            if (recipeRatings.isNotEmpty()) {
+                                Text(
+                                    text = "⭐ " + String.format(Locale.US, "%.1f", avgRating) + "/5 (" + recipeRatings.size + ")",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                         Text(
                             text = "Last: $lastCookedText",
                             style = MaterialTheme.typography.bodySmall,

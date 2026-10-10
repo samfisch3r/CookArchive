@@ -53,6 +53,7 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
     val recipes by viewModel.allRecipes.collectAsState(initial = emptyList())
     val mealPlans by viewModel.allMealPlans.collectAsState(initial = emptyList())
     val shoppingItems by viewModel.allShoppingItems.collectAsState(initial = emptyList())
+    val ratings by viewModel.allRatings.collectAsState(initial = emptyList())
 
     val currentRecipe by viewModel.currentRecipe.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -134,6 +135,7 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                         RecipeDetailScreen(
                             recipeWithDetails = recipe,
                             plannedDates = plannedDates,
+                            ratings = ratings,
                             onStartCooking = { activeSubScreen = SubScreen.Cooking },
                             onEdit = { activeSubScreen = SubScreen.Edit },
                             onDelete = {
@@ -209,6 +211,7 @@ fun MainContent(viewModel: RecipeViewModel = viewModel()) {
                         MainTab.Recipes -> {
                             RecipeListScreen(
                                 recipes = recipes,
+                                ratings = ratings,
                                 isLoading = isLoading,
                                 errorEvents = viewModel.errorEvents,
                                 onRecipeClick = { id ->

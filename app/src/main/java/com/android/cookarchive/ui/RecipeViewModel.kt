@@ -12,6 +12,7 @@ import com.android.cookarchive.data.entities.InstructionStep
 import com.android.cookarchive.data.entities.MealHistoryItem
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.Recipe
+import com.android.cookarchive.data.entities.RecipeRating
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import com.android.cookarchive.data.entities.ShoppingListItem
 import com.android.cookarchive.ui.screens.getNext5Days
@@ -44,6 +45,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
     val allRecipes = dao.getAllRecipes()
     val allMealPlans = dao.getAllMealPlans()
     val allShoppingItems = dao.getAllShoppingItems()
+    val allRatings = dao.getAllRatings()
 
     private val _currentRecipe = MutableStateFlow<RecipeWithDetails?>(null)
     val currentRecipe: StateFlow<RecipeWithDetails?> = _currentRecipe.asStateFlow()
@@ -104,6 +106,7 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                                 }
                                 dao.insertMealHistory(
                                     MealHistoryItem(
+                                        recipeId = pastPlan.mealPlan.recipeId,
                                         title = pastPlan.displayTitle,
                                         date = pastPlan.mealPlan.date
                                     )
@@ -435,15 +438,53 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
             val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
             val mealPlansByDate = allPlans.groupBy { it.mealPlan.date }
             val recipesList = dao.getAllRecipes().firstOrNull() ?: emptyList()
-            val activeWishes = WebSyncUtil.fetchWishesFromWeb()
-            _recipeWishes.value = activeWishes
+            
+            val remoteData = WebSyncUtil.fetchDataFromWeb()
+            _recipeWishes.value = remoteData.wishes
+
+            // Sync remote ratings into Room database so they are saved locally
+            if (remoteData.ratings.isNotEmpty()) {
+                val roomRatings = remoteData.ratings.map { r ->
+                    RecipeRating(
+                        id = r.id,
+                        recipeId = r.recipeId,
+                        title = r.title,
+                        rating = r.rating,
+                        date = r.date,
+                        comment = r.comment,
+                        timestamp = r.timestamp
+                    )
+                }
+                dao.insertRatings(roomRatings)
+            }
+
+            // Read all saved ratings from Room database
+            val localRatings = dao.getAllRatingsSync()
+            val ratingEntries = localRatings.map { r ->
+                WebSyncUtil.RatingEntry(
+                    id = r.id,
+                    recipeId = r.recipeId,
+                    title = r.title,
+                    rating = r.rating,
+                    date = r.date,
+                    comment = r.comment,
+                    timestamp = r.timestamp
+                )
+            }
 
             val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
             val historyFromDb = dao.getRecentMealHistorySync(15)
                 .filter { it.date < todayIso }
 
             val historyEntries = if (historyFromDb.isNotEmpty()) {
-                historyFromDb.take(7).map { WebSyncUtil.HistoryEntry(it.title, it.date) }
+                historyFromDb.take(7).map {
+                    WebSyncUtil.HistoryEntry(
+                        title = it.title,
+                        date = it.date,
+                        isRecipe = it.recipeId != null,
+                        recipeId = it.recipeId
+                    )
+                }
             } else {
                 val isoFormatter = DateTimeFormatter.ISO_LOCAL_DATE
                 recipesList.filter { it.recipe.lastCooked > 0 }
@@ -453,7 +494,14 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                             .format(isoFormatter)
-                        if (dateStr < todayIso) WebSyncUtil.HistoryEntry(it.recipe.title, dateStr) else null
+                        if (dateStr < todayIso) {
+                            WebSyncUtil.HistoryEntry(
+                                title = it.recipe.title,
+                                date = dateStr,
+                                isRecipe = true,
+                                recipeId = it.recipe.id
+                            )
+                        } else null
                     }
                     .take(7)
             }
@@ -462,8 +510,9 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
                 daySlots = days,
                 mealPlansByDate = mealPlansByDate,
                 allRecipes = recipesList,
-                existingWishes = activeWishes,
-                mealHistory = historyEntries
+                existingWishes = remoteData.wishes,
+                mealHistory = historyEntries,
+                existingRatings = ratingEntries
             )
         } catch (e: Exception) {
             e.printStackTrace()

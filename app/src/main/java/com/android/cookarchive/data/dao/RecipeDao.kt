@@ -7,6 +7,7 @@ import com.android.cookarchive.data.entities.MealHistoryItem
 import com.android.cookarchive.data.entities.MealPlan
 import com.android.cookarchive.data.entities.MealPlanWithRecipe
 import com.android.cookarchive.data.entities.Recipe
+import com.android.cookarchive.data.entities.RecipeRating
 import com.android.cookarchive.data.entities.RecipeWithDetails
 import com.android.cookarchive.data.entities.ShoppingListItem
 import kotlinx.coroutines.flow.Flow
@@ -79,6 +80,16 @@ interface RecipeDao {
 
     @Query("DELETE FROM meal_history WHERE id NOT IN (SELECT id FROM meal_history ORDER BY date DESC, id DESC LIMIT 30)")
     fun trimMealHistory()
+
+    // Rating queries
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertRatings(ratings: List<RecipeRating>)
+
+    @Query("SELECT * FROM recipe_ratings")
+    fun getAllRatings(): Flow<List<RecipeRating>>
+
+    @Query("SELECT * FROM recipe_ratings")
+    fun getAllRatingsSync(): List<RecipeRating>
 
     // Shopping List queries
     @Query("SELECT * FROM shopping_list_items ORDER BY isBought ASC, name ASC")

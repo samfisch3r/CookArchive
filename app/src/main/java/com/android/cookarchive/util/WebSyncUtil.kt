@@ -31,10 +31,27 @@ object WebSyncUtil {
 
     data class HistoryEntry(
         val title: String,
-        val date: String
+        val date: String,
+        val isRecipe: Boolean = true,
+        val recipeId: Long? = null
     )
 
-    suspend fun fetchWishesFromWeb(): List<MealWish> = withContext(Dispatchers.IO) {
+    data class RatingEntry(
+        val id: String,
+        val recipeId: Long? = null,
+        val title: String,
+        val rating: Int,
+        val date: String,
+        val comment: String? = null,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+
+    data class WebRemoteData(
+        val wishes: List<MealWish>,
+        val ratings: List<RatingEntry>
+    )
+
+    suspend fun fetchDataFromWeb(): WebRemoteData = withContext(Dispatchers.IO) {
         try {
             val targetUrl = URL("${JSONBIN_URL}/latest")
             val connection = (targetUrl.openConnection() as HttpURLConnection).apply {
@@ -50,8 +67,8 @@ object WebSyncUtil {
                 
                 val root = JSONObject(responseText)
                 val record = root.optJSONObject("record") ?: root
+                
                 val wishesArray = record.optJSONArray("wishes") ?: JSONArray()
-
                 val wishesList = mutableListOf<MealWish>()
                 for (i in 0 until wishesArray.length()) {
                     val w = wishesArray.optJSONObject(i) ?: continue
@@ -67,22 +84,47 @@ object WebSyncUtil {
                         )
                     }
                 }
-                return@withContext wishesList
+
+                val ratingsArray = record.optJSONArray("ratings") ?: JSONArray()
+                val ratingsList = mutableListOf<RatingEntry>()
+                for (j in 0 until ratingsArray.length()) {
+                    val r = ratingsArray.optJSONObject(j) ?: continue
+                    val title = r.optString("title", "").trim()
+                    val ratingVal = r.optInt("rating", 0)
+                    if (title.isNotBlank() && ratingVal in 1..5) {
+                        ratingsList.add(
+                            RatingEntry(
+                                id = r.optString("id", "rating_${j}_${System.currentTimeMillis()}"),
+                                recipeId = if (r.has("recipeId") && !r.isNull("recipeId")) r.getLong("recipeId") else null,
+                                title = title,
+                                rating = ratingVal,
+                                date = r.optString("date", ""),
+                                comment = if (r.has("comment") && !r.isNull("comment")) r.getString("comment") else null,
+                                timestamp = r.optLong("timestamp", System.currentTimeMillis())
+                            )
+                        )
+                    }
+                }
+
+                return@withContext WebRemoteData(wishesList, ratingsList)
             }
             connection.disconnect()
-            emptyList()
+            WebRemoteData(emptyList(), emptyList())
         } catch (e: Exception) {
             e.printStackTrace()
-            emptyList()
+            WebRemoteData(emptyList(), emptyList())
         }
     }
+
+    suspend fun fetchWishesFromWeb(): List<MealWish> = fetchDataFromWeb().wishes
 
     suspend fun syncMealPlanToWeb(
         daySlots: List<DaySlot>,
         mealPlansByDate: Map<String, List<MealPlanWithRecipe>>,
         allRecipes: List<RecipeWithDetails> = emptyList(),
         existingWishes: List<MealWish>? = null,
-        mealHistory: List<HistoryEntry> = emptyList()
+        mealHistory: List<HistoryEntry> = emptyList(),
+        existingRatings: List<RatingEntry>? = null
     ) = withContext(Dispatchers.IO) {
         try {
             val currentWishes = existingWishes ?: fetchWishesFromWeb()
@@ -106,6 +148,8 @@ object WebSyncUtil {
                     mealJson.put("id", item.mealPlan.id)
                     mealJson.put("title", item.displayTitle)
                     mealJson.put("category", item.displayCategory)
+                    mealJson.put("isRecipe", item.isRecipe)
+                    mealJson.put("recipeId", item.mealPlan.recipeId ?: "")
 
                     val rawImage = item.recipeWithDetails?.recipe?.imagePath
                     val imagePayload = encodeImageForSync(rawImage)
@@ -148,9 +192,27 @@ object WebSyncUtil {
                 val hJson = JSONObject()
                 hJson.put("title", item.title)
                 hJson.put("date", item.date)
+                hJson.put("isRecipe", item.isRecipe)
+                hJson.put("recipeId", item.recipeId ?: "")
                 historyArray.put(hJson)
             }
             rootJson.put("history", historyArray)
+
+            // 5. Ratings Array
+            val currentRatings = existingRatings ?: fetchDataFromWeb().ratings
+            val ratingsArray = JSONArray()
+            currentRatings.forEach { r ->
+                val rJson = JSONObject()
+                rJson.put("id", r.id)
+                rJson.put("recipeId", r.recipeId)
+                rJson.put("title", r.title)
+                rJson.put("rating", r.rating)
+                rJson.put("date", r.date)
+                if (!r.comment.isNullOrBlank()) rJson.put("comment", r.comment)
+                rJson.put("timestamp", r.timestamp)
+                ratingsArray.put(rJson)
+            }
+            rootJson.put("ratings", ratingsArray)
 
             // Send PUT request to JSONBin.io to update the Bin
             val targetUrl = URL(JSONBIN_URL)
