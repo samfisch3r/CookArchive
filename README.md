@@ -5,13 +5,17 @@ CookArchive is a fully-featured Android application built with modern Jetpack Co
 ## ✨ Features
 
 *   **📖 Recipe Management**: Store, edit, and organize all your favorite recipes in one place using a local Room database (works 100% offline).
+*   **🔍 Ingredient Search**: Search recipes instantly by ingredient name, recipe title, or category. Matching ingredients are highlighted on the recipe cards.
+*   **📐 Serving Size Scaling & Memory**: Adjust serving sizes using an interactive slider. The app remembers your preferred slider position per recipe (without altering the base recipe default servings) and scales ingredient quantities in Cooking Mode, Menu Plan, and Shopping List.
 *   **🤖 AI Recipe Scanner**: Import recipes instantly by picking photos or PDFs from your device. Gemini AI extracts the title, ingredients, and instruction steps seamlessly.
 *   **🌐 Web Scraper**: Paste a URL from popular recipe websites and let the app automatically extract the ingredients and steps using standard `schema.org/Recipe` formatting.
 *   **📅 Household Menu Plan**: Schedule meals up to 5 days in advance, with support for free-text custom notes.
-*   **☁️ Live Web Sync**: Automatically syncs your Menu Plan to cloud storage (JSONBin), letting household members view the live meal plan from any web browser.
+*   **☁️ Live Web Sync & Meal History**: Automatically syncs your Menu Plan to cloud storage (JSONBin), letting household members view the live meal plan and the last 7 cooked meals (with dates) from any web browser.
+*   **⭐ Web Ratings & Highest Rated Sorting**: Household members can rate Today's meals and Past History meals on the website using an interactive 5-star rating control. Ratings sync back to the app, allowing you to sort your recipe catalog by "Highest Rated".
 *   **🛒 Interactive Shopping List**: Add a planned recipe to your shopping list and the app intelligently scales and merges ingredient quantities (e.g., `250g + 500g = 750g`). Add custom items, check off what you've bought, and clear your cart with one tap.
-*   **🧑‍🍳 Cooking Mode**: A distraction-free, full-screen step-by-step cooking pager that keeps your screen awake while your hands are messy.
-*   **📊 Auto-Tracking**: The app automatically tracks how many times you've cooked a meal and when you last made it based on your Menu Plan history. Sort your recipes to find hidden gems you haven't cooked in months!
+*   **🧑‍🍳 Cooking Mode**: A distraction-free, full-screen step-by-step cooking pager with an ingredients quick-sheet scaled to your serving size, keeping your screen awake while your hands are messy.
+*   **📊 Auto-Tracking**: The app automatically tracks how many times you've cooked a meal and when you last made it based on your Menu Plan history.
+*   **📦 Backup & Restore**: Export recipes and ratings to a ZIP file, with smart in-place imports that protect your active menu plan.
 
 ## 🚀 Tech Stack
 

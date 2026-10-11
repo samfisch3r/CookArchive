@@ -79,47 +79,45 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
         viewModelScope.launch {
             val updatedWishes = _recipeWishes.value.filter { it.id != wishId }
             _recipeWishes.value = updatedWishes
-            withContext(Dispatchers.IO) {
-                val days = getNext5Days()
-                val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
-                val mealPlansByDate = allPlans.groupBy { it.mealPlan.date }
-                val recipesList = dao.getAllRecipes().firstOrNull() ?: emptyList()
-                WebSyncUtil.syncMealPlanToWeb(days, mealPlansByDate, recipesList, updatedWishes)
-            }
+            syncMealPlanToWeb()
         }
     }
 
     private fun processPastMealPlans() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
-                
-                db.withTransaction {
-                    val pastPlans = dao.getPastMealPlansSync(todayIso)
-                    if (pastPlans.isNotEmpty()) {
-                        pastPlans.forEach { pastPlan ->
-                            try {
-                                val pastDate = LocalDate.parse(pastPlan.mealPlan.date, DateTimeFormatter.ISO_LOCAL_DATE)
-                                val lastCookedMs = pastDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                                pastPlan.mealPlan.recipeId?.let { recipeId ->
-                                    dao.updateRecipeCookStats(recipeId, lastCookedMs)
-                                }
-                                dao.insertMealHistory(
-                                    MealHistoryItem(
-                                        recipeId = pastPlan.mealPlan.recipeId,
-                                        title = pastPlan.displayTitle,
-                                        date = pastPlan.mealPlan.date
-                                    )
-                                )
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
+                processPastMealPlansInternal()
+                syncMealPlanToWeb()
+            }
+        }
+    }
+
+    private suspend fun processPastMealPlansInternal() {
+        val todayIso = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        
+        db.withTransaction {
+            val pastPlans = dao.getPastMealPlansSync(todayIso)
+            if (pastPlans.isNotEmpty()) {
+                pastPlans.forEach { pastPlan ->
+                    try {
+                        val pastDate = LocalDate.parse(pastPlan.mealPlan.date, DateTimeFormatter.ISO_LOCAL_DATE)
+                        val lastCookedMs = pastDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                        pastPlan.mealPlan.recipeId?.let { recipeId ->
+                            dao.updateRecipeCookStats(recipeId, lastCookedMs)
                         }
-                        dao.deletePastMealPlans(todayIso)
-                        dao.trimMealHistory()
+                        dao.insertMealHistory(
+                            MealHistoryItem(
+                                recipeId = pastPlan.mealPlan.recipeId,
+                                title = pastPlan.displayTitle,
+                                date = pastPlan.mealPlan.date
+                            )
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
                 }
-                syncMealPlanToWeb()
+                dao.deletePastMealPlans(todayIso)
+                dao.trimMealHistory()
             }
         }
     }
@@ -434,6 +432,8 @@ class RecipeViewModel(application: Application) : AndroidViewModel(application) 
 
     private suspend fun syncMealPlanToWeb() = withContext(Dispatchers.IO) {
         try {
+            processPastMealPlansInternal()
+
             val days = getNext5Days()
             val allPlans = dao.getAllMealPlans().firstOrNull() ?: emptyList()
             val mealPlansByDate = allPlans.groupBy { it.mealPlan.date }
