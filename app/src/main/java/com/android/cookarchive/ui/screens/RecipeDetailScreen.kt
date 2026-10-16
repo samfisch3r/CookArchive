@@ -23,6 +23,7 @@ import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.Ingredient
 import com.android.cookarchive.data.entities.RecipeRating
 import com.android.cookarchive.data.entities.RecipeWithDetails
+import com.android.cookarchive.util.InstructionScaler
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -278,7 +279,8 @@ fun RecipeDetailScreen(
                             contentScale = ContentScale.Crop
                         )
                     }
-                    Text(text = step.instructionText)
+                    val scaledInstruction = InstructionScaler.scaleInstruction(step.instructionText, scaleFactor)
+                    Text(text = scaledInstruction)
                 }
             }
         }

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.android.cookarchive.data.entities.RecipeWithDetails
+import com.android.cookarchive.util.InstructionScaler
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -174,8 +175,10 @@ fun CookingModeScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
+                    val scaleFactor = recipeWithDetails.scaleFactor
+                    val scaledInstruction = InstructionScaler.scaleInstruction(step.instructionText, scaleFactor)
                     Text(
-                        text = step.instructionText,
+                        text = scaledInstruction,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontSize = 20.sp,
                             lineHeight = 28.sp
