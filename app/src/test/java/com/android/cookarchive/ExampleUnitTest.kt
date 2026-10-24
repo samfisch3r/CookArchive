@@ -20,6 +20,13 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun testInstructionScalerWithDeciliters() {
+        val text = "Add 2 dl milk and 1.5 dl cream."
+        val scaled = InstructionScaler.scaleInstruction(text, 2.0)
+        assertEquals("Add 4 dl milk and 3 dl cream.", scaled)
+    }
+
+    @Test
     fun testInstructionScalerWithScaleFactor1_0() {
         val text = "Add 200ml milk and 100g sugar."
         val scaled = InstructionScaler.scaleInstruction(text, 1.0)

@@ -12,11 +12,12 @@ object InstructionScaler {
     )
 
     private val SCALABLE_UNITS = setOf(
-        "ml", "l", "g", "kg", "mg", "oz", "lb", "lbs",
-        "tbsp", "tsp", "el", "tl", "cup", "cups",
+        "ml", "cl", "dl", "l", "g", "kg", "mg", "oz", "floz", "fl", "lb", "lbs",
+        "tbsp", "tsp", "el", "tl", "cup", "cups", "pt", "pint", "pints", "qt", "quart",
         "gramm", "gram", "grams", "milliliter", "milliliters", "liter", "liters",
+        "deciliter", "deciliters", "deziliter", "centiliter",
         "teaspoon", "teaspoons", "tablespoon", "tablespoons",
-        "clove", "cloves", "zehe", "zehen", "prise", "prisen",
+        "clove", "cloves", "zehe", "zehen", "prise", "prisen", "messerspitze", "msp",
         "stk", "stück", "stueck", "dosis", "dose", "dosen", "becher", "packung", "pck", "tl", "el"
     )
 
